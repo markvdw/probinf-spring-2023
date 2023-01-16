@@ -1,0 +1,460 @@
+%% Time-stamp: <2019-01-22 14:47:04 (marc)>
+\documentclass[xcolor=x11names,compress,mathserif,handout]{beamer}
+
+\usepackage{../includes/MarkMathCmds}
+
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{Building Probabilistic Models}}
+\newcommand{\footertitle}{Building Probabilistic Models}
+\newcommand{\location}{Imperial College London}
+\newcommand{\talkDate}{{January 16, 2023}}
+
+\usepackage{subfig}
+
+
+
+
+\date{\imperialGray{\talkDate}}
+
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+\begin{frame}{Questions}
+  Last time, I gave examples of probabilistic reasoning, e.g.~colour preception:
+  \begin{gather*}
+    % P(C|L,\hyp_k) = \sum_i \colchar{$P(C|L,I=i)$}{green} P(I=i|\hyp_k)
+    P(C|L,\hyp_k) = \sum_i \colchar{$P(C|L,I=i)$}{orange} \colchar{$P(I=i|\hyp_k)$}{orange} \\
+    \colchar{$P(C|L,I=i)$}{orange} = \frac{P(L|C,I=i)P(C)}{P(L|I=i)}
+  \end{gather*} \pause
+
+\begin{itemize}
+\item But why this structure? \pause
+\item What assumptions were made? \pause
+\item How should assumptions be expressed and communicated? \pause
+\item How do we manipulate distributions to the form we want?\pause
+\end{itemize}
+
+\begin{center}
+\Large How to systematically approach \\
+a probabilistic modelling problem?
+\end{center}
+\end{frame}
+
+
+\begin{frame}{Mathematical Modelling}
+  Often, we can pose a mathematical model of a phenomenon:
+  \begin{itemize}
+  \item Reflection (Phong model, different symbol convention)
+    \begin{center}
+      \includegraphics[width=0.8\textwidth]{./figures/phong-eqn.png}
+    \end{center} \pause
+  \item Movement of an object under gravity (Newton's laws)
+    \begin{align}
+      s_t &= \half \frac{m}{F} t^2 + v_0 t
+    \end{align} \pause
+  \end{itemize}
+
+So if you are \emph{given} some quantities, you can make a prediction about another.
+\end{frame}
+
+
+\begin{frame}{From Mathematical Models to Probabilistic Models}
+\begin{itemize}
+\item A mathematical model expresses deterministic relationships. \pause
+\item A probabilistic model expresses relationships with uncertainty. \pause
+\item Often, probabilistic models are specified starting with a mathematical model. \pause
+\item Mathematical relationships can help specify conditional distributions. \pause
+\end{itemize}
+
+\vspace{0.3cm}
+
+Mathematical models are a \textit{special case} of deterministic models. Probability can still express certainty! \pause
+
+E.g.~from Newton's laws:
+\begin{align}
+s_t &= \half \frac{m}{F} t^2 + v_0 t \\
+p(s_t | v_0, m, F) &= \delta(s_t - \half \frac{m}{F} t^2 + v_0 t)
+\end{align}
+
+(Remember: $\int_{\mathcal R} \delta(\vx - \vy) \calcd\vx = 1$ if $\vy \in \mathcal R$, $0$ otherwise.)
+\end{frame}
+
+
+
+\begin{frame}{Probabilistic Models: Uncertain Quantities}
+Given a mathematical model.
+\begin{align}
+p(s_t | v_0, m, F) &= \delta(s_t - \half \frac{m}{F} t^2 + v_0 t)
+\end{align}
+
+A certain relationship like this can be used to work back to uncertain quantities. \pause
+Imagine we are uncertain about certain quantities:
+\begin{align}
+p(v_0, m, F) = \NormDist{v_0; \mu_v, 1.0}\delta(m - 1.0)\NormDist{F; \mu_F, 0.1}
+\end{align} \pause
+
+We can find how our uncertainty over the initial velocity $v_0$ changes by finding $p(v_0|s_t)$!
+\end{frame}
+
+\begin{frame}{Probabilistic Models: Uncertain Relationships}
+\begin{itemize}
+\item Is the relationship $p(s_t | v_0, m, F) = \delta(s_t - \half \frac{m}{F} t^2 + v_0 t)$ \emph{realistic}? \pause
+\item If we did an initial value experiment, would we really measure \emph{exactly} the predicted value? \pause
+\item Adding uncertainty makes predictions more \emph{realistic}, by allowing \emph{errors}.
+\begin{align}
+p(s_t | v_0, m, F) = \NormDist{s_t;  \half \frac{m}{F} t^2 + v_0 t, \sigma^2}
+\end{align}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Probability of Everything}
+% What may be confusing about how we posed the dress problem, is that we immediately started
+% from wanting to know what the posterior on the colour was. It is often difficult to write
+% down the correct distributions for a posterior of interest directly.
+
+% It's a good idea to start from a representation that 
+How to make these intuitions \emph{systematic}? \pause \\
+
+It's a good idea to start from a representation that:
+\begin{enumerate}
+\item clearly expresses the assumptions made in our model,
+\item allows us to derive any distribution that we are interested in.
+\end{enumerate}
+
+\vspace{0.3cm} \pause
+
+\begin{center}
+{\large The joint distribution over all variables.} \\
+{\Large The \emph{Probability of Everything}.}
+\end{center}\pause
+
+\vspace{-0.6cm}
+
+\begin{gather}
+p(x, y, z)
+\end{gather} \pause
+Any question we may want to answer corresponds to finding:
+%\vspace{-0.4cm}
+\begin{align}
+p(x, z|y) = \frac{p(x, y, z)}{p(y)} && \text{or} && 
+p(x | y) = \int \frac{p(x, y, z)}{p(y)} \calcd z
+\end{align} \pause
+
+\begin{itemize}
+\item Observe a variable? Conditioning (i.e.~divide and renormalise).
+\item Not interested in a variable? Marginalise.
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}{Building a Probabilistic Model: Statistical Approach}
+Understanding how your variables causally interact gives you a factorisation of the joint.
+
+% E.g.~changes in $X$ are caused only by Y and Z\pause
+
+\pause
+
+\begin{enumerate}
+\item Identify all the variables that are relevant to your problem. \pause
+
+\item Start with a variable that you will observe. \pause
+% This is usually a good idea, since it depends on the variables that are hidden!
+
+\item Determine which variables it depends on, and choose a sensible conditional distribution. \pause
+\item Repeat previous step for one of the variables that you conditioned on.
+\end{enumerate}
+\end{frame}
+
+
+\begin{frame}{Example: Lighting}
+  \vspace{-1.0cm}
+  \begin{columns}
+    \hfill
+    \centering
+    \begin{column}{0.55\textwidth}
+      \textbf{Step 1}: Identify all variables:
+      \begin{itemize}
+      \item Object colour $C$.
+      \item Reflected light $L$.
+      \item Illumination $I$.
+      \end{itemize}
+      Joint: $p(C, L, I)$.
+    \end{column}
+    \begin{column}{0.4\textwidth}  %%<--- here
+          \begin{center}
+            \includegraphics[width=\textwidth]{./figures/reflection.jpg}
+          \end{center}
+    \end{column}
+    \hfill
+  \end{columns} \pause
+
+
+  \textbf{Step 2}: We observe the reflected light $L$. We have a model for the $L$ given $I$ and $C$: $p(L,C,I) = p(L|C,I)p(C, I)$. \pause
+
+  \textbf{Step 3}: Let's pick $C$. Colour does not depend on illumination, so $p(C | I) = p(C)$, showing that $C$ and $I$ are independent.
+
+\vspace{0.3cm} \pause
+While we can use our knowledge for choosing $p(L|C, I)$, we need to choose subjective priors for $p(C)$ and $p(I)$.
+\end{frame}
+
+\begin{frame}{Finding the right posterior}
+\begin{itemize}
+\item Now that we have the joint, how do we find $p(C|L)$?
+\item Remember: We need to find it in terms of the conditional distributions \emph{which we can actually evaluate}.
+\item This is why starting with the joint is such a good idea! Given the definitions from the previous slide, we can evaluate it!
+\end{itemize}
+\begin{align}
+p(C|L) &= \frac{\colchar{$p(C, L)$}{red}}{\colchar{$p(L)$}{red}} = \onslide<2->{\frac{\colchar{$\sum_I p(C, L, I)$}{orange}}{\colchar{$\sum_{C, I}p(C, L, I)$}{orange}}} \\
+\onslide<3->{&= \frac{\sum_I \colchar{$p(L|C, I)$}{green} \colchar{$p(C)$}{green} \colchar{$p(I)$}{green}}{\dots}}
+\end{align}
+
+\onslide<4->{
+We can take many different routes!
+\begin{equation}
+p(C|L) = \frac{\colchar{$p(L|C)$}{red}\colchar{$p(C)$}{green}}{p(L)} = \frac{\left[\sum_I \colchar{$p(L|C,I) p(I)$}{green}\right]\colchar{$p(C)$}{green}}{p(L)} % \colchar{$p(C|I, L)$}{red} \colchar{$p(I)$}{green} \,.
+\end{equation}
+Many roads lead to Rome, but starting from the joint \\
+highlights assumptions
+}
+\end{frame}
+
+
+\begin{frame}{Example: Burglars, Earthquakes, and Alarms}
+\textit{``Fred lives in Los Angeles and commutes 60 miles to work. Whilst at work, he receives a phone-call from his neighbour saying that Fred’s burglar alarm is ringing. What is the probability that there was a burglar in his house today? While driving home to investigate, Fred hears on the radio that there was a small earthquake that day near his home. ‘Oh’, he says, feeling relieved, ‘it was probably the earthquake that set off the alarm’. What is the probability that there was a burglar in his house?''} \citep[][§21.1]{itila}
+\vspace{0.2cm}
+
+Q: How does the joint factorise? What conditionals should we define?
+\vspace{-0.4cm}
+\begin{itemize}[<+->]
+\item Variables: \textbf{p}honecall, \textbf{a}larm, \textbf{b}urglar, \textbf{r}adio, \textbf{e}arthquake
+\vspace{-0.2cm}
+\begin{overprint}
+\onslide*<1>{
+\begin{flalign}
+&p(p, a, b, r, e) = p(p, a, b, r, e)&
+\end{flalign}
+}
+\onslide*<2>{
+\begin{flalign}
+&p(p, a, b, r, e) = p(p|a, b, r, e) p(a, b, r, e)&
+\end{flalign}
+}
+\onslide*<3>{
+\begin{flalign}
+&p(p, a, b, r, e) = p(p|a) p(a, b, r, e)& % We assume you don't get a phonecall if there's an earthquake, or if the radio says something
+\end{flalign}
+}
+\onslide*<4>{
+\begin{flalign}
+&p(p, a, b, r, e) = p(p|a) p(a | b, r, e) p(b, r, e)&
+\end{flalign}
+}
+\onslide*<5>{
+\begin{flalign}
+&p(p, a, b, r, e) = p(p|a) p(a | b, e) p(b, r, e)&  % Alarm can go off due to earthquake or burglar
+\end{flalign}
+}
+\onslide*<6>{
+\begin{flalign}
+&p(p, a, b, r, e) = p(p|a) p(a | b, e) p(b| r, e) p(r, e)&
+\end{flalign}
+}
+\onslide*<7>{
+\begin{flalign}
+&p(p, a, b, r, e) = p(p|a) p(a | b, e) p(b) p(r, e)&
+\end{flalign}
+}
+\onslide*<8->{
+\begin{flalign}
+&p(p, a, b, r, e) = p(p|a) p(a | b, e) p(b) p(r| e)p(e)&
+\end{flalign}
+}
+\end{overprint}
+\onslide<9->{
+\vspace{-1.2cm}\item After selecting sensible conditionals, we have the joint.}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Probabilistic Pipeline}
+If your assumptions are good/correct, inference will give accurate results and good predictions.
+
+  \begin{center}
+    \includegraphics[width=0.58\hsize]{./figures/probabilistic_pipeline}
+  \end{center}
+  
+  
+  \begin{itemize}
+  \item Good models \cemph{generate} data that is similar to the data we observe.
+  \item \cemph{Predict and explore}: Sample from the prior, assess predictions.
+  \item \emph{Criticize/revise the model}.
+  \end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Building a Probabilistic Model: ML Approach}
+Q: What happens if we don't have a mathematical/mechanistic model?
+\begin{itemize}
+\item For some problems, little is known about the process.
+\item No known latent variables to use for creating a model.
+\item We mainly want good prediction!
+\end{itemize} \pause
+
+\vspace{0.3cm}
+
+All we really need is $p(\mathcal{D}_{\text{future}}, \mathcal{D}_{\text{observed}})$, so we can find the predictive distribution:
+\begin{align}
+p(\mathcal{D}_{\text{future}} | \mathcal{D}_{\text{observed}}) = \frac{p(\mathcal{D}_{\text{future}}, \mathcal{D}_{\text{observed}})}{p(\mathcal{D}_\text{observed})} \,.
+\end{align}
+\end{frame}
+
+
+\begin{frame}{Latent Variables}
+How do we create a joint with interesting relationships between the observed and future data? \pause
+\begin{itemize}
+\item Invent \emph{latent variables} that are \emph{common} to all data.
+\begin{align}
+p(\mathcal{D}_{\text{fut}}, \mathcal{D}_{\text{obs}}, \vz)
+\end{align} \pause
+\item For simplicity, often data is iid given latent variables.
+\begin{align}
+ p(\mathcal{D}_{\text{fut}}, \mathcal{D}_{\text{obs}}, \vz) = \prod_i p(\mathcal{D}_i|\vz) p(\vz)
+\end{align} \pause
+\item May not have a direct physical basis initially, but can turn out to be interpretable after training. \pause
+\item Induces correlations between data, that can help to predict 
+\begin{equation}
+p(\mathcal{D}_\text{fut}, \mathcal{D}_{\text{obs}}) = \int p(\mathcal{D}_\text{fut}, \mathcal{D}_{\text{obs}}, \vz) \calcd{\vz}
+\end{equation}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Example: Linear Basis Function Regression}
+Linear regression falls under this!
+\begin{align}
+p(\vy, \vy^*) &= \int \prod_i p(y_i|\vtheta) p(\vtheta) \calcd{\vtheta} \\
+p(y_i|\vtheta) &= \NormDist{y_i; \vtheta\transpose\vphi(\vx), \sigma^2}
+\end{align} \pause
+\begin{itemize}
+\item Do we really believe that the data we obtained was generated by sampling some parameters?
+\item Do we really believe that the relationship is a sum of polynomials?
+\item No, but it's useful for predicting!
+\end{itemize} \pause
+Similar, VAE (which we will also discuss).
+\end{frame}
+
+
+\begin{frame}{How do we know we have a good model?}
+Model criticism is crucial!
+
+Luckily, we have an objective metric on how well it's doing:
+\pause
+\begin{center}
+\Large Predictive accuracy!
+\end{center} \pause
+
+\begin{itemize}
+\item Hold-out test set.
+\item Check where it is overconfident and underconfident.
+\item Does it predict well when you change the setting?
+\item Bayesian model selection (soon).
+\end{itemize}
+
+\vspace{0.3cm} \pause
+
+The ML philosophy: if you predict well, you understand.
+\end{frame}
+
+
+\begin{frame}{Conclusion}
+Summary:
+\begin{itemize}
+\item You can do anything with the joint.
+\item Can create joints from understanding of the world.
+\item Can create joints by just hypothesising relationships. \\ \pause Just make sure you validate your model...
+\end{itemize} \pause
+
+\vspace{0.3cm}
+
+What you should be able to do:
+\begin{itemize}
+\item Create probabilistic model (i.e.~joints) by composing conditionals.
+\item Apply sum and product rules to find desired posteriors.
+\end{itemize}
+
+\vspace{0.3cm} \pause
+
+Reading \& exercises:
+\begin{itemize}
+\item Chapter 3 \citep{itila}.
+\item Exercise: the burglar alarm \citep[][ch.21]{itila}
+\item Exercise: bent coin \citep[][\S 3.2]{itila}
+\item Exercise: legal evidence \citep[][\S 3.4]{itila}
+\end{itemize}
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\begin{frame}[t,allowframebreaks]
+\frametitle{References}
+\linespread{1.0}
+\tiny
+% \bibliographystyle{abbrv}
+\bibliographystyle{apalike}
+\bibliography{../includes/pi-literature.bib}
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

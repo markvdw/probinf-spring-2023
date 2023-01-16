@@ -1,0 +1,633 @@
+%% Time-stamp: <2019-01-22 14:47:04 (marc)>
+\documentclass[xcolor=x11names,compress,mathserif,handout]{beamer}
+
+\usepackage{../includes/MarkMathCmds}
+
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{Reasoning with Uncertainty}}
+\newcommand{\footertitle}{Reasoning with Uncertainty}
+\newcommand{\location}{Imperial College London}
+\newcommand{\talkDate}{{January 16, 2023}}
+
+\usepackage{subfig}
+
+
+
+
+\date{\imperialGray{\talkDate}}
+
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% Alright, Hi everyone! Welcome to Probabilistic Inference!
+% In this first lecture, I want to give you an overview of the approach
+% that we're going to take in this course.
+% So Probabilistic Inference is a topic that lies at the intersection
+% between probability and statistics, and it is heavily used in both
+% fields, although in a slightly different way. Probabilistic inference
+% is particularly useful when you have sources of uncertainty in a
+% problem. In statistical applications, this is often noise which
+% obscures a signal, or in machine learning this is often unsupervised
+% learning, or generative models.
+
+% This first lecture is titled ``Reasoning with Uncertainty'', because
+% this is essentially what probabilistic inference allows us to do.
+% To give a broad overview, I want to start with connecting probability
+% with logic, and I want to give a few examples on how it may help
+% us reason about the world.
+
+
+\begin{frame}{Reasoning \& Logic}
+To build ``intelligent'' systems, we need them to be able \\
+to ``make statements'' about the world.
+
+\vspace{0.3cm} \pause
+
+\emph{Reasoning} is all about
+\begin{itemize}
+\item going from knowledge that we already have, to
+\item statements about the task at hand.
+\end{itemize}
+
+
+\vspace{0.3cm} \pause
+\emph{Logic} mechanises this process, e.g.
+\begin{itemize}
+\item Socrates is a human.
+\item All humans are mortal. \pause
+\item[$\therefore$] Socrates is mortal.
+\end{itemize}
+\pause
+  \begin{myblock}{Logic is a process}
+    Logic is the \emph{process} by which we derive new true statements given existing ones.
+  \end{myblock}
+\end{frame}
+
+
+\begin{frame}{Reasoning \& Logic}
+We can agree on a reasoning, but disagree about truth.
+\begin{itemize}
+\item Socrates is immortal.
+\item All humans are mortal ($\implies$ all immortals are not human). \pause
+\item[$\therefore$] Socrates is not human.
+\end{itemize} \pause
+\vspace{0.3cm}
+  \begin{myblock}{Logic is a process}
+    Logic is the \emph{process} by which we derive new \emph{beliefs} given existing ones.
+  \end{myblock}
+
+\vspace{0.3cm} \pause
+
+\begin{itemize}
+\item Beliefs in statements is subjective.
+\item The process to manipulate them is not.
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}{Reasoning under Uncertainty} \pause
+Knowledge is generally not completely certain:
+\begin{itemize}
+\item \emph{Incomplete information} (epistemic) \pause \\
+  Someone has a secret, you just don't know it. \\
+  A drug has an effectiveness, but we haven't determined it. \pause
+\item \emph{Inherent unpredictability} (aleatoric) \pause \\
+  Radioactive decay. \pause \\
+  Flipping a coin \pause ... sort of.
+\end{itemize}
+
+\vspace{0.3cm} \pause
+
+E.g.:
+\begin{itemize}
+\item Dark clouds usually cause rain.
+\item My friend tells me there are dark clouds.
+\item[?] How sure am I that it will rain?
+\end{itemize}
+
+\vspace{0.3cm} \pause
+
+\begin{center}
+\Large Is there a well-defined \emph{process} \\ for reasoning under uncertainty?
+\end{center}
+
+\end{frame}
+
+\begin{frame}{Requirements for Uncertainty-Aware Reasoning}
+A non-rigorous selection of requirements: \pause
+\begin{enumerate}
+\item Degrees of belief (DoB) can be \emph{ordered}, \\
+i.e.~if $B(y) > B(x)$, and $B(z) > B(y)$, then $B(z) > B(x)$. \pause
+\item Reduces to \emph{propositional calculus} (Boolean algebra) when dealing with full certainty. \pause
+\begin{enumerate}
+\item The DoB in a statement $x$ and its negation $\bar x$ are related
+\begin{equation}
+B(x) = f(B(\bar x)) \,.
+\end{equation} \pause
+\item The DoB in two statements simultaneously ($x \text{ AND } y$) is related to the DoB in $x$ given $y$ is certainly true ($x | y$), and the DoB in y:
+\begin{equation}
+B(x,y) = g(B(x|y), B(y))
+\end{equation} \pause
+\end{enumerate}
+\vspace{-0.4cm}
+\item \emph{Consistency} between different derivations of the same belief. \pause
+\end{enumerate}
+We take $x, y, z$ to be logical statements, $\bar x$ to be the negation of the statement $x$, and $B(x)$ to be the belief in the statement $x$. \pause
+\begin{center}
+\emph{Probability satisfies requirements!}
+\end{center}
+\end{frame}
+
+
+
+\begin{frame}{Example: Simple Implication}
+\begin{itemize}
+\item Dark clouds usually cause rain.
+\item My friend tells me there are dark clouds.
+\item[?] How sure am I that it will rain?
+\end{itemize} \pause
+
+\vspace{0.3cm}
+
+Taking binary variables $R,C$ to indicate rainyness and cloudiness, our background knowledge $\hyp$ gives us beliefs in:
+\begin{itemize}
+\item $P(R=1\given C=0,\hyp) = r_0$, $P(R=1\given C=1,\hyp) = r_1$
+\item $P(C=1|F,\hyp) = c$ (where $F$ is what our friend told us)
+\end{itemize}
+% I'm not saying how we derive this, this is just the specification of the problem.
+
+\vspace{0.3cm} \pause
+
+We can derive our belief whether it will rain:
+% Based on all the information we have so far. We are fusing together different sources of information
+% just like logic fuses together different statements.
+% Our beliefs about rain given clouds are independent of our friend's statement.
+% If you're confused about when to condition on what, we'll go into this in more detail later.
+\begin{align}
+P(R=1|F,\hyp) &= \sum_c P(R=1|C=c,\hyp) P(C=c|F,\hyp) \nonumber \\
+&= r_1 c + r_0 (1-c)
+\end{align}
+
+If we had full certainty about statements, e.g.~$r_1=1,c=1$, then this is \textit{modus ponens}.
+\end{frame}
+
+
+
+
+\begin{frame}{Example: Denying the Consequent}
+\begin{itemize}
+\item Dark clouds usually cause rain.
+\item No water droplets are falling onto my head.
+\item[?] Do I expect there to be dark clouds?
+\end{itemize}\pause
+
+\vspace{0.3cm}
+
+This time, we have defined our beliefs in:
+\begin{itemize}
+\item $P(R=1\given C=0,\hyp) = r_0$, $P(R=1\given C=1,\hyp) = r_1$
+% \item $P(C=1|\hyp) = c$
+\item $P(R=0|\hyp) = d$
+\end{itemize}
+
+\vspace{0.3cm} \pause
+
+We can derive our belief of whether there will be clouds:
+\begin{align}
+P(C=1|\hyp) &= \sum_r P(C=1|R=r,\hyp) P(R=r|\hyp) \\
+P(C=1|R=r,\hyp) &= \frac{P(R=r|C=1,\hyp)P(C=1|\hyp)}{\sum_cP(R=r|C=c,\hyp)P(C=c|\hyp)}
+\end{align}
+
+Full certainty (e.g.~$r_1=1,d=1$) $\to$ \textit{modus tollens}. \pause
+
+Note: we can't choose $P(C|\hyp)$ independently of $P(R=0|\hyp)$, so this is to show the reduction to logic only.
+\end{frame}
+
+\begin{frame}{Example: What colour is an object?}
+\begin{itemize}
+\item We observe light $L$, reflected off an object with colour $C$, under illumination $I$.
+\item Given we observe light, what colour is the object?
+\end{itemize}
+
+  \begin{columns}
+    \hfill
+    \centering
+    \begin{column}{0.55\textwidth}
+      \onslide<2->{
+      \begin{gather*}
+        % P(C|L,\hyp_k) = \sum_i \colchar{$P(C|L,I=i)$}{green} P(I=i|\hyp_k)
+        P(C|L,\hyp_k) = \sum_i \colchar{$P(C|L,I=i)$}{green} \colchar{$P(I=i|\hyp_k)$}{orange} \\
+        \colchar{$P(C|L,I=i)$}{green} = \frac{P(L|C,I=i)P(C)}{P(L|I=i)}
+      \end{gather*}}
+      \onslide<3->{
+        \vspace{-0.4cm}
+        \begin{itemize}
+          %\setlength{\itemindent}{-0.2cm}
+        \item [$\implies$] Belief in colour depends on prior on illumination! $P(I\!=\!i|\hyp_k) \!=\! p_{ik}$
+        \end{itemize}
+      }
+    \end{column}
+    \begin{column}{0.4\textwidth}  %%<--- here
+      \begin{overprint}
+      \onslide*<1-3>{
+      \begin{center}
+        \includegraphics[width=\textwidth]{./figures/reflection.jpg}
+      \end{center}
+
+      % \begin{itemize}
+      %   \setlength{\itemindent}{-0.7cm}
+      % \item We observe outgoing light
+      % \item Interested in object colour
+      % \end{itemize}
+    }
+      \onslide*<4>{
+      \begin{center}
+        \includegraphics[height=3.5cm]{./figures/dress.png}
+      \end{center}
+      }
+
+      \onslide*<5->{
+      \begin{center}
+        \includegraphics[height=3.5cm]{./figures/dress-explain.png}
+      \end{center}
+      }
+      \end{overprint}
+    \end{column}
+    \hfill
+  \end{columns}
+  \onslide<6>{
+\vspace{-0.6cm}
+
+\begin{table}[]
+\label{tab:blue}
+\caption{\small{Left: $P(C|L=\ell,I)$, right: $P(C|L,\hyp_k)$ for $k\in\{1,2,3\}$.}}
+\vspace{-0.2cm}
+\begin{tabular}{lcc|ccc}
+              & \textit{$I=\text{B}$} & $I=\text{Y}$ & $p_{B1} = 0.8$ & $p_{Y2} = 0.8$ & $p_{B3} = 0.5$ \\
+$C=\text{WG}$ & \textit{$0.9$}        & $0.1$        & $0.74$               & $0.26$               & $0.5$                \\
+$C=\text{BB}$ & $0.1$                 & $0.9$        & $0.26$               & $0.74$               & $0.5$               
+\end{tabular}
+\end{table}
+}
+\end{frame}
+
+\begin{frame}{Representing uncertainty}
+\begin{center}
+{\Large White and Gold} or {\Large Blue and Black}?
+\end{center} \pause
+
+\begin{itemize}
+\item Lighting situation was \textbf{ambiguous}, so prior determined posterior. \pause
+\item Prior is subjective, but we can agree on reasoning! \pause
+% \item Because of our \textbf{prior uncertainty} on the incoming light, we remain uncertain after observing data (\textbf{a posteriori}). \pause
+\end{itemize}
+
+So what could explain this phenomenon?\pause
+\begin{itemize}
+\item Our brains could have a biased prior, \pause
+\item or the prior is 50-50, and we perceive our brain's best guess! \pause
+% \item We \textbf{represent uncertainty} using a \textbf{probability distribution}. \pause
+% \item Hence: \textbf{Probabilistic Inference} \pause
+\end{itemize}
+
+\begin{center}
+        \includegraphics[height=2.7cm]{./figures/duck-rabbit.jpg}
+\end{center} \pause
+\vspace{-0.3cm}
+\begin{itemize}
+\item Guess: Our brain jumps to one interpretation, even if the belief is only mildly stronger. \pause
+\item Wouldn't it be better if we kept track of all possibilities?
+\end{itemize}
+\end{frame}
+
+
+
+
+
+\begin{frame}{Further Reading: Cox Axioms}
+We discussed that probability can represent \emph{beliefs in statements}, and that in a certain way it extends propositional calculus to deal with uncertainty. \pause
+
+\begin{itemize}
+\item \citet{cox1946,cox1963} proposed \emph{axioms} that such a way of ``reasoning under uncertainty'' should satisfy.
+\item Further claim: Probability theory is the \emph{only} way to reason under uncertainty!
+\item This is controversial! Not everyone agrees to what degree this is proven, or which axioms are necessary.
+\end{itemize} \pause
+
+See e.g.~\citet{vanhorn2003cox}. \pause
+
+\vspace{0.5cm}
+
+Beware of looking into this! You end up doing philosophy, which is interesting, but not helpful to get things done...
+
+\end{frame}
+
+
+\begin{frame}{Further Reading: Dutch Books}
+Map beliefs to bets: \\
+ You take a bet if its expected value under your beliefs is positive.
+\begin{itemize}
+\item Example: For a coin for which you believe $P(\text{heads}) = p$, \\
+where you get a payout of \emph{€1 if you win}, \\
+you will pay up to \emph{€p to take the bet}.
+\end{itemize} \pause
+
+\vspace{0.3cm}
+
+A Dutch book is a
+\begin{itemize}
+\item set of bets that you \emph{would take},
+\item but that \emph{always leads you to lose money}!
+\end{itemize} \pause
+
+\vspace{0.3cm}
+
+If you have \emph{inconsistent beliefs}, then you a Dutch book exists, e.g.:
+\begin{itemize}
+\item Belief $P(\text{heads}) = 0.9$ \textbf{and} $P(\text{tails}) = 0.9$ (inconsistent)
+\item Bet 1: Pay €0.9 to bet on heads for a payout of €1.
+\item Bet 2: Pay €0.9 to bet on tails for a payout of €1. \pause
+\item Result: You always lose €0.8.
+\end{itemize}
+
+\vspace{0.3cm}\pause
+
+Dutch book theorem: No Dutch book if you follow probability.
+\end{frame}
+
+
+
+
+
+
+% Flip-side of \textbf{uncertainty} is \textbf{belief}.
+
+\begin{frame}{What is this course about?}
+\pause
+\begin{center}
+\huge Inference
+\end{center}
+\pause
+\begin{center}
+{\large 
+Given my \textbf{understanding} of how the world works} \pause \\
+Given \textbf{incomplete information} about the world \pause \\
+\Large \textbf{What do I know} about what I don't observe?
+\end{center} \pause
+
+\vspace{0.5cm}
+
+\begin{itemize}[<+->]
+\item Use probability to represent subjective state of \emph{uncertainty}.
+\item Reduction in uncertainty is \emph{learning}!
+\item Rules of probability describe learning \emph{process}.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{What is this course about?}
+
+\vspace{0.5cm}
+
+\begin{itemize}
+  \item Specifying models by \emph{specifying beliefs} using probabilities. \pause
+  \item \emph{Computing beliefs} about the world after seeing data. \pause
+  \item Using uncertainty when making \emph{decisions}.
+\end{itemize}
+
+\vspace{0.5cm} \pause
+
+The course will be mathematical! (but it's not a maths course)
+\begin{itemize}
+\item We will discuss proofs (although focussing on the big picture).
+\item We will analyse the behaviour of algorithms.
+\item Exam will require you to demonstrate ability to apply mathematical principles.
+\item BUT, hopefully you gain an intuition into the principles too.
+\end{itemize}
+\end{frame}
+
+
+
+% \begin{frame}{Exercises}
+% To get warmed up, I recommend doing a few exercises.
+% \end{frame}
+
+
+
+
+
+\begin{frame}{Course outline}
+\begin{enumerate}[I)]
+\item Bayesian brainteasers (graphical models, tractable inference) \\
+How do we put problems into the mathematical formalism? What is a model? How do we formulate assumptions in models?
+\vspace{0.5cm}
+\item Gaussian processes \\
+Specifying models, computing beliefs.
+\vspace{0.5cm}
+\item Decision Theory \& Bayesian optimisation \\
+Using uncertainty to take actions.
+\vspace{0.5cm}
+\item Approximate inference \\
+What happens if we cannot compute our beliefs exactly?
+\vspace{0.5cm}
+\item Modern applications, e.g.~generative models \\
+How is this used right now?
+\end{enumerate}
+\end{frame}
+
+
+\begin{frame}{Why take this course?}
+Develop toolset of:
+\begin{itemize}
+\item (Bayesian) statistical methods\footnote{There is more to statistics than this course!} \pause \\
+Useful to solve problems (next slide)
+\item Dealing with distributions in deep learning \pause \\
+Generative modelling (e.g.~VAEs, diffusion models) \pause
+\end{itemize}
+
+\vspace{0.3cm}
+
+Develop understanding of: \pause
+\begin{itemize}
+\item Reasoning under uncertainty and ambiguity \pause \\
+(Arguably): All good procedures must map onto Bayesian inference somehow \pause
+\item The underlying process of what deep learning needs to solve \pause \\
+Combining cues from disparate sources
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Why take this course?}
+% \begin{itemize}
+% \item Probably not necessary if you want to focus only on implementing methods. \pause
+% \item Very helpful if you want to \emph{understand} methods, \pause \\
+% ... or develop \emph{new} methods. \pause
+% \end{itemize}
+
+I would recommend if you want to do
+\begin{itemize}
+\item data science, i.e.~building models for careful prediction,
+\item development of new machine learning models / techniques,
+\item machine learning research.
+\end{itemize} \pause
+
+\vspace{0.5cm}
+Probably not necessary if you want to focus on implementing ML models, or ML infrastructure.
+\end{frame}
+
+
+\begin{frame}{What problems can we solve?}
+  \begin{itemize}
+    \item Low data prediction (how (un)certain am I?)
+    \item Experiment design (what data should I gather next?)
+    \item Data fusion (How should I combine information sources?)
+    \item Learning (How should my belief change to match the world?)
+    \item Decision making (Should I take a risk or play it safe?)
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Prerequisites}
+
+\begin{itemize}
+  \item Good understanding of Mathematics for Machine Learning, e.g.:
+  \begin{itemize}
+  \item Linear algebra (eigendecompositions etc)
+  \item Probability and basic statistics
+  \item Vector calculus
+  \item Gradient-based optimisation
+  \end{itemize}
+  \item Python coding
+\end{itemize}
+\begin{center}
+  \url{https://mml-book.com}
+\end{center}
+\end{frame}
+
+
+
+
+\begin{frame}{Expectations}
+
+What is expected for the exam:
+\begin{itemize}
+  \item Knowledge of topics discussed
+  \item Awareness of why topics are relevant
+  \item Derive methods using mathematical concepts discussed
+  \item Analyse methods using mathematical concepts discussed
+\end{itemize}
+
+\vspace{0.5cm}
+
+
+How to study \& revise:
+\begin{itemize}
+\item Join the lectures in person, engage, share your questions
+\item Think about how how theory applies in different settings
+\item Do the exercises
+\end{itemize}
+
+
+\end{frame}
+
+
+
+
+\begin{frame}{Highly Recommended Reading}
+Information Theory, Inference, and Learning Algorithms \citep{itila}
+\begin{itemize}
+\item \S2.1 (4pgs): Refresher of probability + notation we will use.
+\item \S2.2 (1pg): Probability as belief.
+\item \S2.3 (5pgs): Examples of Bayes rule. Exercises + solutions are very illustrative.
+\end{itemize}
+
+\emph{You really should read this.}
+
+\vspace{0.5cm}
+See EdStem for links to books. 
+\end{frame}
+
+
+
+\begin{frame}{Practicalities}
+\begin{itemize}
+\item Two assessed coursework (on Part II \& III and IV).
+\begin{itemize}
+\item Coding exercises assessed by unittests, designed to \emph{teach}.
+\item Exam is designed to \emph{assess}.
+\end{itemize} \pause
+\item Q\&A sessions most Fridays: Quickest way to get an answer to your question. \pause
+\item Feedback: TAs+I are happy to give feedback on your solutions to exercises (e.g.~if you want to know if you did enough steps) \\
+Friday Q\&A session or on EdStem. \pause
+\item I like 
+\item I will look at EdStem questions once per week.
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Questions?}
+Hopefully this gives you an overview of the course.
+
+\vspace{0.5cm}
+
+\begin{center}
+\Huge \emph{Questions?}
+\end{center}
+\end{frame}
+
+
+
+
+\begin{frame}[t,allowframebreaks]
+\frametitle{References}
+\linespread{1.0}
+\tiny
+% \bibliographystyle{abbrv}
+\bibliographystyle{apalike}
+\bibliography{../includes/pi-literature.bib}
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 
