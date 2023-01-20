@@ -1,5 +1,5 @@
 %% Time-stamp: <2019-01-22 14:47:04 (marc)>
-\documentclass[xcolor=x11names,compress,mathserif,handout]{beamer}
+\documentclass[xcolor=x11names,compress,mathserif]{beamer}
 
 \usepackage{../includes/MarkMathCmds}
 
@@ -40,10 +40,10 @@
 
 
 \begin{frame}{Questions}
-  Last time, I gave examples of probabilistic reasoning, e.g.~colour preception:
+  Last time, I gave examples of probabilistic reasoning, e.g.~colour perception:
   \begin{gather*}
     % P(C|L,\hyp_k) = \sum_i \colchar{$P(C|L,I=i)$}{green} P(I=i|\hyp_k)
-    P(C|L,\hyp_k) = \sum_i \colchar{$P(C|L,I=i)$}{orange} \colchar{$P(I=i|\hyp_k)$}{orange} \\
+    P(C|L) = \sum_i \colchar{$P(C|L,I=i)$}{orange} \colchar{$P(I=i)$}{orange} \\
     \colchar{$P(C|L,I=i)$}{orange} = \frac{P(L|C,I=i)P(C)}{P(L|I=i)}
   \end{gather*} \pause
 
@@ -70,7 +70,7 @@ a probabilistic modelling problem?
     \end{center} \pause
   \item Movement of an object under gravity (Newton's laws)
     \begin{align}
-      s_t &= \half \frac{m}{F} t^2 + v_0 t
+      s_t &= \half \frac{F}{m} t^2 + v_0 t
     \end{align} \pause
   \end{itemize}
 
@@ -92,8 +92,8 @@ Mathematical models are a \textit{special case} of deterministic models. Probabi
 
 E.g.~from Newton's laws:
 \begin{align}
-s_t &= \half \frac{m}{F} t^2 + v_0 t \\
-p(s_t | v_0, m, F) &= \delta(s_t - \half \frac{m}{F} t^2 + v_0 t)
+s_t &= \half \frac{F}{m} t^2 + v_0 t \\
+p(s_t | v_0, m, F) &= \delta(s_t - \half \frac{F}{m} t^2 + v_0 t)
 \end{align}
 
 (Remember: $\int_{\mathcal R} \delta(\vx - \vy) \calcd\vx = 1$ if $\vy \in \mathcal R$, $0$ otherwise.)
@@ -104,7 +104,7 @@ p(s_t | v_0, m, F) &= \delta(s_t - \half \frac{m}{F} t^2 + v_0 t)
 \begin{frame}{Probabilistic Models: Uncertain Quantities}
 Given a mathematical model.
 \begin{align}
-p(s_t | v_0, m, F) &= \delta(s_t - \half \frac{m}{F} t^2 + v_0 t)
+p(s_t | v_0, m, F) &= \delta(s_t - \half \frac{F}{m} t^2 + v_0 t)
 \end{align}
 
 A certain relationship like this can be used to work back to uncertain quantities. \pause
@@ -118,11 +118,11 @@ We can find how our uncertainty over the initial velocity $v_0$ changes by findi
 
 \begin{frame}{Probabilistic Models: Uncertain Relationships}
 \begin{itemize}
-\item Is the relationship $p(s_t | v_0, m, F) = \delta(s_t - \half \frac{m}{F} t^2 + v_0 t)$ \emph{realistic}? \pause
+\item Is the relationship $p(s_t | v_0, m, F) = \delta(s_t - \half \frac{F}{m} t^2 + v_0 t)$ \emph{realistic}? \pause
 \item If we did an initial value experiment, would we really measure \emph{exactly} the predicted value? \pause
 \item Adding uncertainty makes predictions more \emph{realistic}, by allowing \emph{errors}.
 \begin{align}
-p(s_t | v_0, m, F) = \NormDist{s_t;  \half \frac{m}{F} t^2 + v_0 t, \sigma^2}
+p(s_t | v_0, m, F) = \NormDist{s_t;  \half \frac{F}{m} t^2 + v_0 t, \sigma^2}
 \end{align}
 \end{itemize}
 \end{frame}
