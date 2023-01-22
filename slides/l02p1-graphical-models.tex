@@ -446,8 +446,124 @@ of its descendants is in the set $C$ (observed)
 
 
 
+\begin{frame}{}
+\begin{center}
+\Large \emph{(Hidden) Markov Models}
+\end{center}
+\begin{itemize}
+\item Models of time-varying phenomena (time series)
+\item Conditional Independencies are crucial
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Time-series models}
+Many phenomena vary over time:
+\begin{itemize}
+\item Dynamical systems
+\begin{itemize}
+\item motion of stars in the sky, that you want to understand
+\item motion of a robot arm, that you want to control
+\end{itemize}
+\item Audio signals
+\item Communication signals
+\item Price of assets over time
+\end{itemize}
+
+\vspace{0.5cm}
+
+\pause
+More generally, we can think about \emph{sequence} models:
+\begin{itemize}
+\item DNA sequences
+\item Language
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Time-series models}
+What are the relevant random variables? \pause \\
+At the very least, we have one observation for each time point, and a joint over all:
+\begin{align}
+p(x_1, x_2, x_3, x_4, \dots, x_T)
+\end{align} \pause
+\begin{itemize}
+\item To simplify the specification of the model, we can \emph{assume} that $x_t$ is the \emph{state} of the dynamical system. \pause
+\item The state is a variable that, if known, determines \emph{everything} there is to know about future states. \pause
+\item In other words, $x_{t+T} \ci x_{t-\tau} | x_t$ for $t,T > 0$.
+\end{itemize}
+\end{frame}
+
 
 \begin{frame}{Markov Chains}
+We can express this assumption with the factorisation:
+\begin{align}
+p(x_1, \dots, x_5) = p(x_1) \prod_{t=2}^5 p(x_t|x_{t-1})
+\end{align}
+With the corresponding graphical model:
+\begin{center}
+\scalebox{0.7}{
+      \tikz{ %
+        \node[latent] (x1) {$x_1$} ; %
+        \node[latent, right=of x1] (x2) {$x_2$} ; %
+        \node[latent, right=of x2] (x3) {$x_3$} ; %
+        \node[latent, right=of x3] (x4) {$x_4$} ; %
+        \node[latent, right=of x4] (x5) {$x_5$} ; %
+        \edge {x1} {x2} ; %
+        \edge {x2} {x3} ; %
+        \edge {x3} {x4} ; %
+        \edge {x4} {x5} ; %
+      }
+}
+\end{center} \pause
+
+\vspace{0.3cm}
+
+Exercise: Show that $x_4 \ci x_1 | x_3$. \pause \\
+\arrow Single path from $x_4$ to $x_3$, blocked by rule 1 since $x_3$ is observed.
+\end{frame}
+
+
+\begin{frame}{Hidden Markov Models}
+\begin{itemize}
+\item Most interesting time series models only have \emph{indirect} observations about the state. \pause
+\item We observe the state $x_t$ with some extra randomness through some distribution $p(y_t|x_t)$. \pause
+\item This hides the state from direct view: Hidden Markov Model:
+\end{itemize}
+\begin{center}
+\scalebox{0.7}{
+      \tikz{ %
+        \node[latent] (x1) {$x_1$} ; %
+        \node[latent, right=of x1] (x2) {$x_2$} ; %
+        \node[latent, right=of x2] (x3) {$x_3$} ; %
+        \node[latent, right=of x3] (x4) {$x_4$} ; %
+        \node[latent, right=of x4] (x5) {$x_5$} ; %
+        \node[obs, below=of x1] (y1) {$y_1$} ; %
+        \node[obs, below=of x2] (y2) {$y_2$} ; %
+        \node[obs, below=of x3] (y3) {$y_3$} ; %
+        \node[obs, below=of x4] (y4) {$y_4$} ; %
+        \node[latent, below=of x5] (y5) {$y_5$} ; %
+        \edge {x1} {x2} ; %
+        \edge {x2} {x3} ; %
+        \edge {x3} {x4} ; %
+        \edge {x4} {x5} ; %
+        \edge {x1} {y1} ; %
+        \edge {x2} {y2} ; %
+        \edge {x3} {y3} ; %
+        \edge {x4} {y4} ; %
+        \edge {x5} {y5} ; %
+      }
+}
+\end{center} \pause
+\vspace{-0.2cm}
+\begin{align}
+p(\{x_t\}_{t=1}^5, \{y_t\}_{t=1}^5) = p(x_1) \left[\prod_{t=2}^5 p(x_t|x_{t-1})\right] \left[\prod_{t=1}^5 p(y_t|x_t)\right]
+\end{align}
+\end{frame}
+
+
+\begin{frame}{Hidden Markov Models}
 \begin{center}
 \scalebox{0.7}{
       \tikz{ %
@@ -473,21 +589,103 @@ of its descendants is in the set $C$ (observed)
       }
 }
 \end{center}
-\vspace{-0.2cm}
-\begin{align}
-p(\{x_t\}_{t=1}^5, \{y_t\}_{t=1}^5) = p(x_1) \left[\prod_{t=2}^5 p(x_t|x_{t-1})\right] \left[\prod_{t=1}^5 p(y_t|x_t)\right]
-\end{align}
-How do we compute the posterior on $x_5$ (so we can predict $y_5$)? \pause
+
+Exercise: Is $y_i \ci y_j$ for $i\neq j$? \pause \\
+\arrow No! $y_i$ is connected by an open path to $y_j$. \pause
+
+Observe:
 \begin{itemize}
-\item We note that $x_4 \ci \{x_t\}_{t=1}^2, \{y_t\}_{t=1}^3 | x_3$  (blocked path, tail-to-tail) \\
-  $p(x_4|\{y_t\}_{t=1}^4) = \int p(x_4|x_3, y_4) p(x_3|\{y_t\}_{t=1}^3) \calcd x_3$ \pause
-\item This can be applied recursively!\pause
-\item Finding the posterior can be done in linear time!
+\item We have specified a complex joint on observables $p(y_1,\dots,y_T)$. \pause
+\item But \emph{simpler} structure than an ``always true'' factorisation, e.g.:
+\begin{align}
+p(y_1,\dots,y_T) \overset{\text{AT}}{=} p(y_1) p(y_2|y_1) p(y_3|y_2,y_1) \prod_{t=4}^T p(y_t|y_1,\dots,y_{t-1})
+\end{align} \pause
+\vspace{-0.3cm}
+\item We never needed to specify a function on more than 2 variables! ($p(x_t|x_{t-1})$ vs e.g.~$p(y_t|y_1,\dots,y_{t-1})$).
 \end{itemize}
 \end{frame}
 
 
-\begin{frame}{Recommended Reading}
+\begin{frame}{Hidden Markov Models: Example Applications}
+\begin{itemize}
+\item Figuring out the trajectory of a projectile from RADAR observations (e.g.~spacecraft).
+\begin{itemize}
+\item State is the location and speed of a projectile
+\item $p(x_t|x_{t-1})$ is determined by Newton's laws, plus uncertainty form unknown forces acting on the object.
+\item This is an example of physics-inspired model, where latent variables have physical interpretation.
+\end{itemize}
+\item Stock market models
+\begin{itemize}
+\item Posit some hypothetical ``market state'', which \textit{if you knew it} would predict the future well.
+\item No ``real'' way in which the state ``exists'', but it can help with prediction!
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Hidden Markov Models: Two Questions}
+\begin{itemize}
+\item Given all observations, what is our belief on the latent at time $t$? \\ I.e.~find $p(x_t|y_{1:t})$.
+\item How can we predict into the future? \\ I.e.~find $p(y_{t+1}|y_{1:t})$.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Filtering Distribution}
+Systematic method: Probability of Everything%\footnote{Remember the goal: Write as distributions defined in specification of the model.}
+\begin{align*}
+p(x_t|y_{1:t}) &\stackrel{\text{AT}}{=} \int \frac{p(x_1,\dots,x_t,y_1,\dots,y_t)}{p(y_1,\dots,y_t)} \calcd x_1 \dots x_{t-1} \\
+&\stackrel{\text{MA}}{=} \int \frac{p(x_1) \left[\prod_{t=2}^t p(x_t|x_{t-1})\right] \left[\prod_{t=1}^t p(y_t|x_t)\right]}{p(y_1,\dots,y_t)} \calcd x_1 \dots x_{t-1} \\
+p(y_1,\dots,y_t) &= \int p(x_1) \left[\prod_{t=2}^t p(x_t|x_{t-1})\right] \left[\prod_{t=1}^t p(y_t|x_t)\right] \calcd x_1 \dots x_{t}
+\end{align*}
+\begin{itemize}
+\item In principle, we could compute this (everything is specified in a density from the model specification!)
+\item Lots of sums/integrals though! Very slow to compute!
+\item Could rearrange the sums to speed things up?
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Recursive Filtering}
+You can actually get a recursive equation to solve this problem, which is much easier to compute:
+\begin{align*}
+\text{Step 1:}&\quad &{}p(x_t|y_1,\dots,y_{t-1}) &= \int p(x_t|x_{t-1}) p(x_{t-1}|y_1,\dots,y_{t-1}) \calcd y_{1:t-1} \\
+\text{Step 2:}&\quad &{} p(x_t|y_1,\dots,y_{t}) &= \frac{p(y_t|x_t)p(x_t|y_{1:t-1})}{p(y_t|y_{1:t-1})}
+\end{align*}
+\begin{itemize}
+\item Only needs one sum/integral.
+\item See \texttt{exercises.pdf} (question 9) for full derivation.
+\item Look at \texttt{hmm-demo.ipynb} for alternative derivation and code demonstrating the model.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{HMM Demo}
+Demo \texttt{hmm-demo.ipynb}. {\tiny TODO: Save figures from ipynb and put in slides.}
+\end{frame}
+
+
+\begin{frame}{Algorithms on Graphs}
+\begin{itemize}
+\item It took some effort to derive the recursive algorithm for efficient filtering.
+\item Algorithms on graphs can discover these \emph{efficient} algorithms \emph{automatically}!
+\item \arrow Belief Propagation (not examinable)
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Conclusion}
+\begin{itemize}
+\item Skill: Conditionals to Graphical Model
+\item Skill: Graphical model to Conditionals
+\item Skill: Conditional Independence from Graphical Model
+\item Skill: Simplification of Posteriors using Conditional Independencies
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Further Reading}
   \begin{center}
     Bishop: Pattern Recognition and Machine Learning, Chapter 8 \\
     Directed graphical models
@@ -506,7 +704,7 @@ How do we compute the posterior on $x_5$ (so we can predict $y_5$)? \pause
 \linespread{1.0}
 \tiny
 \bibliographystyle{abbrv}
-\bibliography{../references.bib}
+\bibliography{../includes/pi-literature.bib}
 \end{frame}
 
 
