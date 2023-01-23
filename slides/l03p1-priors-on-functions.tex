@@ -1,0 +1,479 @@
+%% Time-stamp: <2019-01-22 14:47:04 (marc)>
+\documentclass[xcolor=x11names,compress, mathserif]{beamer}
+
+\newcommand\hmmax{0}
+\newcommand\bmmax{0}
+
+\usepackage{../includes/MarkMathCmds}
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{Priors on Functions}}
+\newcommand{\footertitle}{Priors on Functions}
+\newcommand{\location}{Imperial College London}
+\newcommand{\talkDate}{{January 29, 2021}}
+
+
+
+
+\date{\imperialGray{\talkDate}}
+
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+
+\begin{frame}{Part II: Gaussian Processes}
+Now that we know how to specify and manipulate probabilistic models, let's look at a real one:
+\begin{center}
+\Large \emph{Gaussian Processes}
+\end{center}
+
+Gaussian process: A probability distribution on functions, which is useful in regression tasks.
+
+\vspace{0.2cm} \pause
+
+GPs are considered the ``gold standard'' for uncertainty-aware regression. Practically, they excel in tasks that are \pause
+\begin{itemize}[<+->]
+\item are low dimensional (e.g. tens of dimensions rather than 100s),
+\item have little data (or data is expensive to obtain),
+\item are noisy (random fluctuations that obscure the signal),
+\item require uncertainty estimates.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Application Areas}
+\begin{figure}
+\centering
+\includegraphics[width = 0.7\hsize]{./figures/inf-wide.png} \\
+{\tiny From: Fast and Easy Infinitely Wide Networks with Neural Tangents}
+\end{figure}
+Applied widely in
+\begin{itemize}
+\item statistics (epidemiology, mineral deposits, gene expression, ...)
+\item ML (behaviour of dynamical systems, analysis of DNNs)
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Application Areas}
+\begin{center}
+\includegraphics[height =2.5cm]{./figures/lynx_block_stacking}
+\hfill
+\includegraphics[height =2.5cm]{./figures/TPbayesopt.jpg}
+\hfill
+\includegraphics[height =2.5cm]{./figures/lhc}
+\hfill
+\includegraphics[height = 2.5cm]{./figures/mean3-crop}
+\end{center}
+\begin{itemize}
+\item Reinforcement learning and robotics\nocite{Deisenroth2011b,Deisenroth2009,Cutler2015}
+% %   \newline
+% % \arrow Model value functions and/or dynamics with GPs%\nocite{Pan2014}
+\item Bayesian optimization (experimental design)
+%\arrow Model unknown utility functions with GPs
+\item Geostatistics\nocite{Cressie1993} %\newline
+%  \arrow Spatial modeling (e.g., landscapes, resources)\nocite{Cressie1993}
+\item Sensor networks\nocite{Krause2008}
+\item Time-series modeling and
+  forecasting\nocite{Roberts2013,Frigola2013,Deisenroth2012,Osborne2008}
+\item High-energy physics\nocite{Bertone2016}
+\item Medical applications\nocite{Lee2016}
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}{Part II: Teaching Aims}
+\begin{itemize}
+\item Concrete illustration of how to specify Bayesian model \pause
+\item Show features of Bayesian inference\pause
+\begin{itemize}
+\item Uncertainty \pause
+\item Automatic (less trial-and-error) \pause
+\end{itemize}
+\item Show influence of the prior
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Part II: Gaussian Processes}
+\begin{itemize}
+\item Gaussian processes are nothing else than a \emph{different representation} of
+Bayesian Linear Regression. \pause
+\item I like to say that they are a different
+representation of a neural network layer.
+\end{itemize} \pause
+
+\vspace{0.3cm}
+
+This representation improves on Bayesian Linear Regression by:
+\begin{itemize}
+\item making it easier to specify sensible prior distributions (remember, our
+  inferences are only as sensible as our prior assumptions!),
+\item providing better uncertainty estimates by allowing an infinite number of
+  basis functions.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Regression}
+% Mathematically these examples are conceptually similar to curve fitting in 1D
+Curve fitting in 1D. Inputs $\in \mathbb{R}$, outputs $\in \mathbb{R}$:
+  \begin{figure}
+    \centering
+    \includegraphics[width = 0.7\hsize]{./figures/regression_problem.pdf}
+  \end{figure}  
+
+Goal: Find $f: \Reals^D \to \Reals$ from example pairs $\{\vx_n, y_n\}_{n=1}^N$.
+\end{frame}
+
+
+\begin{frame}{Maximum Likelihood Polynomial Regression}
+Approach: \\
+Find $f(\cdot)$ that at last goes as close as possible to the training data. \pause
+\begin{enumerate}
+\item Parameterise set of functions
+\begin{align}
+f(\vx) &= \vphi(\vx)\transpose\vtheta \\
+\text{e.g. } f(x) &= \sum_{d=0}^D x^d \theta_d
+\end{align} \pause
+\item Maximise likelihood:
+\begin{align}
+\vtheta^* = \argmax_{\vtheta} \log p(\vy|\vtheta) = \argmax_{\vtheta} \sum_{n=1}^N \log p(y_n|\vtheta)
+\end{align}
+\end{enumerate}\pause
+Warning: can overfit.
+\end{frame}
+
+
+\begin{frame}{Reminder: Overfitting}
+\vspace{-0.4cm}
+  \begin{figure}
+    \centering
+    \includegraphics[width = 0.6\hsize]{./figures/regression_overfitting.pdf}
+  \end{figure}
+As the degree of the polynomial gets higher:
+\begin{itemize}
+\item training error goes down, as we only get more flexibility to fit the training data,
+\item test error goes up, as we fit to irregularities in the training data rather than trend.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Maximum Likelihood Polynomial Regression}
+\begin{figure}[T]
+\begin{overprint}[3cm]
+\onslide*<1>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly2.pdf}}
+\onslide*<2>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly3.pdf}}
+\onslide*<3>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly4.pdf}}
+\onslide*<4>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly5.pdf}}
+\onslide*<5>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly10.pdf}}
+\onslide*<6>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly15.pdf}}
+\onslide*<7>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly20.pdf}}
+\end{overprint}
+\end{figure}
+\vspace{-0.6cm}
+What degree of polynomial should I use? There is no good answer:
+\begin{itemize}
+\item Extrapolation to left always too extreme and wrong!
+\item Lower degree polynomials have less extreme interpolations, but less
+  flexibility to fit additional data.
+\item Higher degree polynomials interpolate in much more extreme ways, but can fit the additional data...
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Maximum Likelihood Polynomial Regression}
+Two problems:
+\begin{itemize}
+\item Extrapolation always too extreme and wrong.
+\item No single model order worked well for both sets of training data.
+\end{itemize}
+
+\vspace{0.4cm} \pause
+There are lots of problems. Is it only overfitting? That's definitely one of the problems... 
+\vspace{0.4cm} \pause
+
+People say that Bayesian inference helps against overfitting!
+
+Let's try that.
+\end{frame}
+
+
+
+\begin{frame}{Bayesian Linear Regression: Model}
+\begin{columns}
+  \hfill
+    \column{0.2\hsize}
+    % \input{./figures/lm-to-gp/gm_blr_general}
+  \tikz{
+    % nodes
+     \node[obs] (y) {$y_n$};%
+     \node[latent,above=of y]     (theta) {$\vec \theta$}; %
+     \node[const, above=of theta] (priorS) {$\mat S_0$};
+     \node[const, right=of y]     (sigma)  {$\sigma^2$};
+    % plate
+     \plate [inner sep=.3cm,xshift=.02cm,yshift=.2cm] {plate1} {(y)} {$n$ data}; %
+    % edges
+     \edge {theta} {y}  ;
+     \edge {priorS} {theta};
+     \edge {sigma} {y}
+}
+    \column{0.75\hsize}\hfill
+\begin{equation*}
+\begin{aligned}
+  & \text{Prior}\hspace{12mm} p(\vec\theta) =\gauss{\vec m_0}{ \mat S_0}\\
+  & \text{Likelihood}\quad p(y_n | \vec x_n,\vec\theta) = \gaussx{y_n}{\vec
+    \phi\T(\vec x_n)\vec\theta}{\sigma^2}\\
+  & \qquad\implies y_n = \vec\phi\T(\vec x_n)\vec\theta + \epsilon_n,\quad \epsilon_n\overset{\text{\tiny iid}}{\sim}\gauss{0}{\sigma^2}
+\end{aligned}
+\end{equation*}
+
+\begin{itemize}
+\item Parameter $\vec\theta$ becomes a latent (random) variable
+\item Distribution $p(\vec\theta)$ induces a \cemph{distribution over
+    plausible functions}
+\item Choose a conjugate Gaussian prior
+  \begin{itemize}
+    \item Closed-form
+      computations
+    \item Gaussian posterior
+    \end{itemize}
+  \end{itemize}
+\end{columns}
+\end{frame}
+
+
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}
+  \frametitle{Bayesian Linear Regression: Procedure}
+\vspace{-0.3cm}
+   \begin{columns}
+\column{0.65\hsize}
+\begin{itemize}[<+->]
+\item For predictions we need:
+\vspace{-0.2cm}
+\begin{align*}
+p(y_* | x_*, \vy, \mat X) = \int p(y_*|x_*,\vtheta) p(\vtheta | \vy, \mat X)\calcd\vtheta
+\end{align*}
+Where $\mat X \in \Reals^{N\times D}$ are the stacked inputs, and $\vy\in\Reals^N$ are the stacked outputs.
+\item Find posterior; use to find predictive.
+\vspace{-0.2cm}
+\begin{align*}
+p(\vtheta|\vy, \mat X) = \frac{\prod_{n=1}^N p(y_n | \vtheta, \vx_n)p(\vtheta)}{p(\vy|\mat X)}
+\end{align*}
+\item Prior and posterior induce \cemph{distribution over functions}.
+\end{itemize}
+
+\vspace{0.2cm}
+\onslide<4>{\linespread{1}\tiny\emph{Exercise}: Derive everything above carefully from the model definition. Try w/ graphical model. Find the pred.~dist.~in terms of the post mean and var. (discuss on Weds).}
+
+  \column{0.3\hsize}
+    \includegraphics[width = \hsize]{./figures/polynomial_mle_map16}
+    \\[5mm]
+    \onslide+<1->{
+    \includegraphics[width =
+    \hsize]{./figures/polynomial_mle_map_blr16}
+    }
+\end{columns}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Sampling from the Prior over Functions}
+% Good thing: Bayesian linear regression induces a probability
+% distribution over functions
+Consider a linear regression setting 
+\begin{align*}
+y &=f(x) + \epsilon = a + bx + \epsilon\,,\quad
+  \epsilon\sim\gauss{0}{\sigma_n^2}\\
+p(a,b)& = \gauss{\vec 0}{\mat I}\\
+  f_i(x) &= a_i + b_ix, \quad [a_i,b_i]\sim p(a,b)
+\end{align*}
+\begin{figure}
+   \animategraphics[loop,
+    height=5cm]{1}{./figures/animation/prior_samples_fct_distr_}{0}{9}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Sampling from the Posterior  over Functions}
+% Good thing: Bayesian linear regression induces a probability
+% distribution over functions
+Consider a linear regression setting 
+\begin{align*}
+y &= f(x) + \epsilon =a + bx + \epsilon\,,\quad
+    \epsilon\sim\gauss{0}{\sigma_n^2}\\
+   [a_i, b_i] &\sim p(a,b|\mat X, \vec y)\\
+  f_i &= a_i + b_i x 
+\end{align*}
+\begin{figure}
+  \animategraphics[loop,
+    height=5cm]{1}{./figures/animation/posterior_samples_fct_distr_}{0}{9}
+% \includegraphics[height = 5cm]{./figures/lm-to-gp/parameter_posterior_contour_with_samples}
+% \includegraphics[height = 5cm]{./figures/lm-to-gp/function_samples_from_posterior}
+\end{figure}
+\end{frame}
+
+
+
+
+
+\begin{frame}{Bayesian Polynomial Regression}
+\begin{overprint}[3cm]
+\onslide*<1>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly2_bayes.pdf}}
+\onslide*<2>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly3_bayes.pdf}}
+\onslide*<3>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly4_bayes.pdf}}
+\onslide*<4>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly5_bayes.pdf}}
+\onslide*<5>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly10_bayes.pdf}}
+\onslide*<6>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly15_bayes.pdf}}
+\onslide*<7>{\includegraphics[width=\textwidth,trim=3cm 0 3cm 0,clip]{./figures/regression_poly20_bayes.pdf}}
+\end{overprint}
+\begin{itemize}
+\item Improvement: We see large uncertainty when extrapolating.
+\item Extrapolations are still huge...
+\item Still not particularly great behaviour in the interpolation.
+\item Somehow it seems that the model is... struggling.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Influence of the Prior on the Posterior}
+\begin{columns}
+\hfill
+\column{0.65\hsize}
+
+\begin{overprint}
+\onslide*<1>{
+Why does the model make such extreme predictions?
+\vspace{0.2cm}
+
+Remember: Our inferences depend on our assumptions. \\
+Incorrect assumptions lead to incorrect conclusions, even if our reasoning was correct!
+\begin{align}
+p(\vtheta|y_{1:n+1}) = \frac{p(y_{n+1}| \vtheta) p(\vtheta | y_{1:n})}{Z}
+\end{align}
+{\linespread{1}\scriptsize\emph{Exercise}: Holds when $y_i \ci y_j\given \vtheta\,, i\neq j$. Prove this. Find $Z$.}
+
+\vspace{0.2cm}
+
+Each term in the likelihood ``cuts away'' spread from the prior.
+}
+\onslide*<2>{
+Two ways that a model can be \emph{misspecified} through the prior are:
+\begin{enumerate}
+\item The prior does not give probability to good solutions. \\
+{\small A posterior will never place probability on a set that has no probability
+under the prior.}
+\item The prior does places too much probability on bad solutions. \\
+{\small It takes too long for the likelihood to cut out all the bad solutions.}
+\end{enumerate}
+}
+\end{overprint}
+
+
+% - A posterior will never place probability on a set that has no probability
+%   under the prior. This can limit your learning.
+% - It is also bad to put too much probability on sets that will never occur! It
+%   will take lots of data for the likelihood to rule out these possibilities.
+
+\column{0.35\hsize}
+\includegraphics[width=1.0\textwidth]{./figures/prior-posterior-murphy.png}
+{\tiny(Murphy (old), figure 7.11)}
+\end{columns}
+\end{frame}
+
+
+\begin{frame}{Investigating the Prior}
+Let's visualise our prior:
+\includegraphics[width=\textwidth,trim=2cm 0 2cm 0,clip]{./figures/regression_poly_prior.pdf}
+\begin{itemize}
+\item Far too much probability on functions that increase rapidly.
+\item Not enough flexibility for variation in the data range.
+\end{itemize} \pause
+High-order polynomials \emph{can} represent all (reasonable) functions, but our prior doesn't place the mass in the right place!
+\end{frame}
+
+
+\begin{frame}{Squared Exponential Basis Functions}
+To fix the behaviour of our model, we make the prior more sensible by choosing different basis functions.
+\begin{itemize}
+\item We prevent wild extrapolations by choosing basis functions which are
+  \cemph{bounded} in output value.
+\item We prevent sensitivity on distant values by choosing basis functions with a
+  bounded input range where they have effect. (Not the only way to get this behaviour.)
+\end{itemize}
+
+\includegraphics[width=\textwidth,trim=2cm 0 2cm 0,clip]{./figures/regression_sqexp_prior.pdf}
+\end{frame}
+
+
+\begin{frame}{Squared Exponential Basis Functions}
+\begin{figure}
+\centering
+\includegraphics[width=\textwidth,trim=2cm 0 2cm 0,clip]{./figures/regression_sqexp10.pdf}
+\end{figure}
+\begin{itemize}
+\item Likelihood ``cuts away'' prior samples that don't fit the data.
+\item Prior is matched better: more sensible posterior \pause
+\item Interpolation is much better, but what about extrapolation? \pause
+\item Prior is \textit{super certain} that nothing can happen outside $[-4, 3]$! \pause
+\item Not realistic. Can we not just put basis functions everywhere?
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Summary}
+We saw:
+\begin{itemize}
+\item How assumptions in the prior influence the posterior.
+\item How poor assumptions can lead to poor behaviour (i.e.~Bayes doesn't solve everything!).
+\item A way to specify a better prior on functions.
+\item That perhaps we need many, many (infinite) basis functions.
+\end{itemize}
+
+Code for plots: \texttt{https://github.com/markvdw/inference-plots/blob/main/priors-on-functions.ipynb}.
+\end{frame}
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}[t,allowframebreaks]
+\frametitle{References}
+\linespread{1.0}
+\tiny
+\bibliographystyle{abbrv}
+\bibliography{../includes/pi-literature.bib}
+\end{frame}
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

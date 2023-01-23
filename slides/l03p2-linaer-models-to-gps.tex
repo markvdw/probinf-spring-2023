@@ -1,0 +1,472 @@
+%% Time-stamp: <2019-01-22 14:47:04 (marc)>
+\documentclass[xcolor=x11names,compress, mathserif]{beamer}
+
+\newcommand\hmmax{0}
+\newcommand\bmmax{0}
+
+\usepackage{../includes/MarkMathCmds}
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{From Linear Models \\ to Gaussian Processes}}
+\newcommand{\footertitle}{From Linear Models to GPs}
+\newcommand{\location}{Imperial College London}
+\newcommand{\talkDate}{{February 3, 2021}}
+
+
+
+
+
+\date{\imperialGray{\talkDate}}
+
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+
+\begin{frame}{Recap}
+Last lecture we saw that:
+\begin{itemize}
+\item The prior has a large effect on the predictions \& we needed a sensible prior.
+\item Polynomial bases didn't lead to a sensible prior, squared exponential did.
+\item We needed many basis functions to ensure sensible uncertainty.
+\end{itemize}
+\begin{overprint}
+\begin{figure}
+\centering
+\onslide*<1>{\includegraphics[width=\hsize,trim=2.2cm 0 2.2cm 0,clip]{./figures/gp/regression_basisfunc_prior_post_samples.pdf}}
+\onslide*<2>{\includegraphics[width=\hsize,trim=2.2cm 0 2.2cm 0,clip]{./figures/gp/regression_basisfunc_prior_post.pdf}}
+\onslide*<3>{\includegraphics[width=\hsize,trim=2.2cm 0 2.2cm 0,clip]{./figures/gp/regression_basisfunc_prior_post_extrabasis.pdf}}
+\onslide*<4>{\includegraphics[width=\hsize,trim=2.2cm 0 2.2cm 0,clip]{./figures/gp/regression_basisfunc_prior_post_infinitebasis.pdf}}
+\end{figure}
+\end{overprint}
+\end{frame}
+
+
+\begin{frame}{Today}
+We will see:
+\begin{itemize}
+\item By considering computational cost, we derive the Gaussian process view of BLR.
+\item This is the kernel trick!
+\item What is a Gaussian process.
+\item How to find posteriors in GP models.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Infinite Basis Functions: Another Reason}
+\begin{overprint}
+\onslide*<1>{\begin{figure}\centering\includegraphics[width=0.7\hsize]{./figures/gp/regression_basisfunc_add_data0.pdf}\end{figure}}
+\onslide*<2>{\begin{figure}\centering\includegraphics[width=0.7\hsize]{./figures/gp/regression_basisfunc_add_data1.pdf}\end{figure}}
+\onslide*<3>{\begin{figure}\centering\includegraphics[width=0.7\hsize]{./figures/gp/regression_basisfunc_add_data2.pdf}\end{figure}}
+\onslide*<4>{\begin{figure}\centering\includegraphics[width=0.7\hsize]{./figures/gp/regression_basisfunc_add_data3.pdf}\end{figure}}
+\onslide*<5>{\begin{figure}\centering\includegraphics[width=0.7\hsize]{./figures/gp/regression_basisfunc_add_data4.pdf}\end{figure}}
+\onslide*<6>{\begin{figure}\centering\includegraphics[width=0.7\hsize]{./figures/gp/regression_basisfunc_add_data5.pdf}\end{figure}}
+\onslide*<7>{\begin{figure}\centering\includegraphics[width=0.7\hsize]{./figures/gp/regression_basisfunc_add_data6.pdf}\end{figure}}
+\onslide*<8>{\begin{figure}\centering\includegraphics[width=0.7\hsize]{./figures/gp/regression_basisfunc_add_data7.pdf}\end{figure}}
+\onslide*<9>{\begin{figure}\centering\includegraphics[width=0.7\hsize]{./figures/gp/regression_basisfunc_add_data8.pdf}\end{figure}}
+\onslide*<10>{\begin{figure}\centering\includegraphics[width=0.7\hsize]{./figures/gp/regression_basisfunc_add_data9.pdf}\end{figure}}
+\onslide*<11->{\begin{figure}\centering\includegraphics[width=0.7\hsize]{./figures/gp/regression_basisfunc_add_data10.pdf}\end{figure}}
+\end{overprint}
+
+\vspace{-0.5cm}
+\begin{itemize}
+\item Non-local basis functions give uncertainty everywhere (like polynomials).
+\item But uncertainty decreases non-locally!
+\item For $M$ bases, when we condition on $M$ points: full certainty!
+\end{itemize}
+\uncover<12>{\scriptsize \emph{Exercise:} For a model with $M$ bases, show that after conditioning on $M$ points (zero variance likelihood) leads to 1) completely certain predictions, 2) certain posterior.}
+\end{frame}
+
+
+\begin{frame}{BLR: Computing the Posterior}
+For Gaussian models, finding conditionals can easily be done by finding the \emph{joint}, and then applying the \emph{Gaussian conditioning rule}.
+\begin{gather}
+\vtheta \sim \NormDist{0, \mat I_M}\,, \qquad \vepsilon \sim \NormDist{0, \mat I_N\sigma^2}\,, \qquad [\Phi(\mat X)]_{nm} = \phi_m(\vx_n) \,. \\
+\vtheta \in \Reals^M\,,\quad \vy \in \Reals^N \,,\quad \vepsilon \in \Reals^N\,,\quad \Phi(\mat X) \in \Reals^{N\times M}\,,\quad \mat X \in \Reals^{N\times D}\,.
+\end{gather}
+\vspace{-0.4cm}
+\begin{align}
+\begin{bmatrix}
+\vtheta \\
+\vy
+\end{bmatrix} &= 
+\begin{bmatrix}
+\mat I_M & 0 \\
+\Phi(\mat X) & \mat I_n
+\end{bmatrix}\begin{bmatrix}
+\vtheta \\ \vepsilon
+\end{bmatrix}\\
+\implies p\left(\begin{bmatrix}\vtheta \\ \vy\end{bmatrix}\right) &= \NormDist{\begin{bmatrix}\vtheta \\ \vy \end{bmatrix};
+0, \begin{bmatrix}
+\mat I_M & \Phi(\mat X)\transpose \\
+\Phi(\mat X) & \Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N
+\end{bmatrix}}
+\end{align}
+Using:
+\begin{itemize}
+\item Linear relationships between Gaussian RVs gives Gaussian joint.
+\begin{itemize}
+  \item Write joint Gaussian as a linear transformation of RVs \cemph{with known independent distributions}.
+\end{itemize}
+\item $\Exp{\NormDist{\vx; \vmu, \mat\Sigma}}{\mat A\vx} = \mat A\vmu$, and $\Var{\NormDist{\vx; \vmu, \mat\Sigma}}{\mat A\vx} = \mat A\mat\Sigma\mat A\transpose$.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{BLR: Computing the Posterior}
+Gaussian conditioning formula (will be provided in exam):
+\begin{align}
+p\left(\begin{bmatrix}\vx_1 \\ \vx_2\end{bmatrix}\right) &= \NormDist{\begin{bmatrix}\vx_1 \\ \vx_2 \end{bmatrix};
+\begin{bmatrix}\vmu_1 \\ \vmu_2\end{bmatrix}, \begin{bmatrix}
+\mat\Sigma_{11} & \mat\Sigma_{12} \\
+\mat\Sigma_{21} & \mat\Sigma_{22}\end{bmatrix}} \\
+p(\vx_2|\vx_1) &= \NormDist{\vx_2; \vmu_2 + \mat\Sigma_{21}\Sigma_{11}\inv(\vx_1 - \vmu_1), \mat\Sigma_{22} - \mat\Sigma_{21}\mat\Sigma_{11}\inv\mat\Sigma_{12}}
+\end{align}
+$p(\vx_1|\vx_2)$ is similar, and can be obtained by reordering the vector to $\begin{bmatrix}\vx_2 & \vx_1\end{bmatrix}\transpose$. You can find the covariance matrix for this ordering in terms of the covariance blocks that are given above.
+\vspace{0.4cm} \pause
+\begin{align}
+p\left(\begin{bmatrix}\vtheta \\ \vy\end{bmatrix}\right) &= \NormDist{\begin{bmatrix}\vtheta \\ \vy \end{bmatrix};
+0, \begin{bmatrix}
+\mat I_M & \Phi(\mat X)\transpose \\
+\Phi(\mat X) & \Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N
+\end{bmatrix}} \\
+p(\vtheta|\vy) &= \mathcal{N}\Big(\vtheta; \Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N\right]\inv\vy \nonumber \\
+& \qquad \qquad \mathbf I_M - \Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N\right]\inv\Phi(\mat X)\Big)
+\end{align}
+\end{frame}
+
+
+\begin{frame}{BLR: Computing the Posterior}
+Looks complicated. But we can compute it!
+\begin{align}
+p(\vtheta|\vy) &= \mathcal{N}\Big(\vtheta; \Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N\right]\inv\vy \nonumber \\
+& \qquad \qquad \mathbf I_M - \Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N\right]\inv\Phi(\mat X)\Big)
+\end{align}
+What is the computational cost? \pause
+We assume costs of simple linear algebra algorithms, even though more efficient algorithms exist\footnote{$N\times N$ matrix multiplication and matrix inversion can both be $O(N^{2.373})$, but we assume $O(N^3)$. Most important is that we distinguish these expensive operations from cheaper ones that are $O(N^2)$.}.
+\begin{itemize}[<+->]
+\item $\Phi(\mat X)$: $O(NMD)$ --- Assume linear time cost for each dimension of input, then need to compute each basis function for each data point.
+\item $\Phi(\mat X)\Phi(\mat X)\transpose$: $O(N^2M)$ ---  Matrix multiplication
+\item $\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N\right]\inv$ --- $O(N^3)$ Matrix inversion (or Cholesky)
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Woodbury Identity (exam skill)}
+Usually $M \ll N$, so bottleneck: $\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N\right]\inv$ --- $O(N^3)$
+\begin{itemize}
+\item Annoying that we have to compute an $O(N^3)$ cost inverse when the matrix we want is only $\Reals^{M\times M}$.
+\item Also, note that $\Phi(\mat X)\Phi(\mat X)\transpose$ is at most $\mathrm{rank}\,M$!
+\emph{Low rank} matrices are usually cheaper to deal with!
+\end{itemize}
+\vspace{0.4cm}  \pause
+
+Woodbury Identity\footnote{Matrix cookbook recipe 156}:
+\begin{gather}
+\underbrace{(\mat A + \mat U\mat B\mat V)\inv}_{N\times N} = \mat A\inv - \mat A\inv\mat U\underbrace{\left(\mat B\inv + \mat V\mat A\inv\mat U\right)\inv}_{M\times M} \mat V\mat A\inv \\
+\mat A \in \Reals^{N\times N}\,, \quad \mat U \in \Reals^{N\times M}\,,\quad \mat V \in \Reals^{M\times N}\,,\quad \mat B \in \Reals^{M\times M}
+\end{gather}
+\end{frame}
+
+
+\begin{frame}{BLR: Cheap Posterior Mean}
+Let's start with the mean:
+\begin{align}
+\vmu_{\vtheta} = \Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N\right]\inv\vy
+\end{align}
+and take $\mat A = \sigma^2\mat I_N$, $\mat U = \Phi(\mat X)$, $\mat B = \mat I_M$, $\mat V = \Phi(\mat X)\transpose$:
+\begin{align*}
+\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N\right]\inv \!=\! \frac{\mat I_N}{\sigma^2} \!-\!  \frac{\Phi(\mat X)}{\sigma^2}\left[\mat I_M + \frac{\Phi(\mat X)\transpose \Phi(\mat X)}{\sigma^2}\right]\inv\frac{\Phi(\mat X)}{\sigma^2}\transpose
+\end{align*}
+\vspace{-0.4cm}
+\begin{align}
+\therefore \vmu_{\vtheta} &= \sigma^{-2}\Phi(\mat X)\transpose\left[\mat I_N \!-\!  \frac{\Phi(\mat X)}{\sigma^2}\left[\mat I_M + \sigma^{-2}\Phi(\mat X)\transpose \Phi(\mat X)\right]\inv\Phi(\mat X)\transpose \right]\vy \nonumber \\
+&= \left[\mat I_M - \sigma^{-2}\Phi(\mat X)\transpose\Phi(\mat X)\left[\mat I_M + \sigma^{-2}\Phi(\mat X)\transpose \Phi(\mat X)\right]\inv \right]\sigma^{-2}\Phi(\mat X)\transpose\vy \nonumber \\
+&= \left[\left[\mat I_M + \cancel{\sigma^{-2}\Phi(\mat X)\transpose \Phi(\mat X)}\right] - \cancel{\sigma^{-2}\Phi(\mat X)\transpose\Phi(\mat X)} \right] \cdot \nonumber \\
+&\qquad \left[\mat I_M + \sigma^{-2}\Phi(\mat X)\transpose \Phi(\mat X)\right]\inv \sigma^{-2}\Phi(\mat X)\transpose\vy
+\end{align}
+\end{frame}
+
+
+\begin{frame}{BLR: Cheap Posterior Mean}
+\begin{align}
+\vmu_{\vtheta} = \left[\mat I_M + \sigma^{-2}\Phi(\mat X)\transpose \Phi(\mat X)\right]\inv \sigma^{-2}\Phi(\mat X)\transpose\vy
+\end{align}
+Now we can compute in:
+\begin{itemize}
+\item $\Phi(\mat X)$: $O(NMD)$ --- As earlier.
+\item $\Phi(\mat X)\transpose\Phi(\mat X)$: $O(M^2N)$ ---  Matrix multiplication
+\item $\left[\mat I_M + \Phi(\mat X)\transpose \Phi(\mat X)\right]\inv$ --- $O(M^3)$ Matrix inversion (or Cholesky)
+\end{itemize}
+So when $M \ll N$, we now have $O(NM^2)$.
+\end{frame}
+
+
+\begin{frame}{BLR: Cheap Posterior Variance}
+We can similarly apply Woodbury to the posterior variance, just slightly differently. \\
+Always \emph{remember the goal}! From large inverse, to small inverse.
+\begin{align}
+\mat \Sigma_{\vtheta} = \mathbf I_M - \Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N\right]\inv\Phi(\mat X)
+\end{align}
+We take $\mat A\inv = \mat I_M$, $\mat U = \Phi(\mat X)\transpose$, $\mat B\inv = \sigma^2 \mat I_M$, $\mat V = \Phi(\mat X)\transpose$ to obtain:
+\begin{align}
+\mat\Sigma_{\vtheta} = \left[\mat I_M + \sigma^{-2}\Phi(\mat X)\transpose\Phi(\mat X)\right]\inv
+\end{align}
+
+Also computable in $O(NM^2)$!
+\end{frame}
+
+
+\begin{frame}{Two Ways to Compute}
+Method 1, cost $O(N^3 + N^2M + NMD)$:
+\begin{align}
+p(\vtheta|\vy) &= \mathcal{N}\Big(\vtheta; \Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N\right]\inv\vy \nonumber \\
+& \qquad \qquad \mathbf I_M - \Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N\right]\inv\Phi(\mat X)\Big)
+\end{align}
+
+Method 2, cost $O(NM^2 + M^3 + NMD)$:
+\begin{align}
+p(\vtheta|\vy) &= \mathcal{N}\Big(\vtheta; \left[\mat I_M + \sigma^{-2}\Phi(\mat X)\transpose \Phi(\mat X)\right]\inv \sigma^{-2}\Phi(\mat X)\transpose\vy \nonumber \\
+& \qquad \qquad \left[\mat I_M + \sigma^{-2}\Phi(\mat X)\transpose\Phi(\mat X)\right]\inv \Big)
+\end{align}
+\end{frame}
+
+
+\begin{frame}{Predictive Distribution}
+Compute predictive distribution from mean and variance of $p(\vtheta|\vy)$ was an exercise (\texttt{q\&a\_video\_07} notes).
+
+\vspace{0.2cm}
+
+% Method 1, cost $O(N^3 + N^2M + NMD)$:
+% \begin{align}
+% p(y_*|\vy) &= \mathcal{N}\Big(\vtheta; \vphi(\vx_*)\transpose\Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N\right]\inv\vy \nonumber \\
+% & \qquad \mathbf \vphi(\vx_*)\transpose\left[I_M - \Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2\mat I_N\right]\inv\Phi(\mat X)\right]\vphi(\vx_*)\Big)
+% \end{align}
+
+\begin{enumerate}
+\item We find the posterior parameters in some way.
+\item We apply Woodbury to ensure we take a small matrix inverse.
+\item We get predictions at a cost of $O(NM^2 + M^3 + NMD)$.
+\end{enumerate}
+
+\vspace{0.4cm}
+
+Using the parameters found by method 2:
+\begin{align}
+p(\vy_*|\vy) &= \mathcal{N}\Big(\vtheta; \quad \vphi(\vx_*)\transpose\left[\mat I_M + \sigma^{-2}\Phi(\mat X)\transpose \Phi(\mat X)\right]\inv \sigma^{-2}\Phi(\mat X)\transpose\vy \nonumber \\
+& \qquad \qquad \vphi(\vx_*)\transpose\left[\mat I_M + \sigma^{-2}\Phi(\mat X)\transpose\Phi(\mat X)\right]\inv\vphi(\vx_*) + \sigma^2\mat I_N \Big)
+\end{align}
+\end{frame}
+
+
+\begin{frame}{Predictive Distribution --- Exercises}
+We can also find a different form of the predictive distribution, \textit{without} finding the posterior over parameters first.
+\begin{enumerate}
+\item Using the method of transforming Gaussian RVs, show that the joint $p(\vy, y_*)$ is
+\begin{equation}
+p(\vy, y_*) = \NormDist{\begin{bmatrix}\vy \\ y_*\end{bmatrix}; 0, \begin{bmatrix}
+\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2 \mat I_N & \Phi(\mat X)\vphi(\vx_*) \\
+\vphi(\vx_*)\transpose\Phi(\mat X)\transpose & \vphi(\vx_*)\transpose\vphi(\vx_*) + \sigma^2
+\end{bmatrix}}
+\end{equation}
+\item Show that
+\begin{align}
+p(y_*|\vy) &= \mathcal{N}\Big(y_*; \quad \vphi(\vx_*)\transpose\Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2 \mat I_N\right]\inv\vy\,, \nonumber \\
+&\qquad \vphi(\vx_*)\transpose\vphi(\vx_*) + \sigma^2 \nonumber \\
+&\qquad -\vphi(\vx_*)\transpose\Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2 \mat I_N\right]\inv \Phi(\mat X)\vphi(\vx_*) \Big)
+\end{align}
+\end{enumerate}
+
+The cost of computing the predictive in this way is $O(N^3 + N^2M + NMD)$ (like the earlier posterior).
+\end{frame}
+
+
+\begin{frame}{Infinite Basis Functions}
+So we said that to \textit{properly} model uncertainty, and have a flexible enough model, we needed \textit{many}, or even an \emph{infinite} number of basis functions.
+\begin{itemize}
+\item For the $O(NM^2 + M^3 + NMD)$ method, all terms contain $M\to\infty$ because each matrix we compute grows with the features.
+\item For the $O(N^3 + N^2M + NMD)$ method, the matrices we need are all of finite size...: \pause
+\begin{align}
+\Phi(\mat X)\Phi(\mat X)\transpose \in \Reals^{N\times N}\,,\quad \Phi(\mat X)\vphi(\vx_*) \in \Reals^{N\times 1}
+\end{align}
+\end{itemize} \pause
+Notice that we only need \emph{inner products} between feature vectors:
+\begin{align}
+\left[\Phi(\mat X)\Phi(\mat X)\transpose\right]_{ij} = \vphi(\vx_i)\transpose\vphi(\vx_j) \,.
+\end{align} \pause
+What if I told you... there were functions that computed inner products... without computing the vector itself? \pause \emph{Kernel trick.}\footnote{\onslide<5>{\texttt{http://oneweirdkerneltrick.com}}}
+\end{frame}
+
+
+\begin{frame}{Kernels: Polynomial kernel}
+If we can compute the matrices $\Phi(\mat X)\Phi(\mat X)\transpose$ and $\Phi(\mat X)\vphi(\vx_*)$ directly, without first computing the features, we could do computations without incurring the cost for large features! \pause
+
+\vspace{0.3cm}
+
+Example: Polynomial kernel
+\begin{align}
+k(x, y) &= (xy + 1)^{M-1} = \sum_{m=0}^{M-1} {M-1 \choose m}x^my^m = \vphi(x)\transpose\vphi(y) \\
+&\text{for $M=3$, }\quad \vphi(x) = \begin{bmatrix}1 & \sqrt{2}x & x^2\end{bmatrix}\transpose
+\end{align} \pause
+
+We can compute very large inner products for very cheap!
+\end{frame}
+
+
+\begin{frame}{Kernels: Infinite Dimensional Feature Spaces}
+We can even consider infinite dimensional feature spaces, if the limit of the inner product exists!
+\begin{align}
+\phi_m(x) = \exp\left(-\frac{(x-c_m)^2}{2\ell^2}\right)\,, && c_m = \frac{m}{M}\cdot(c_{\text{max}} - c_{\text{min}})
+\end{align}
+\vspace{-0.6cm}
+\begin{gather*}
+k(x, x') = \frac{1}{M}\sum_{m=1}^M \phi_m(x) \phi_m(x') \\
+\lim_{M\to\infty}\frac{1}{M}\sum_{m=1}^M \phi_m(x) \phi_m(x') = \int_{c_{\text{min}}}^{c_{\text{max}}} \exp\left(-\frac{(x-c)^2}{2\ell^2}\right) \exp\left(-\frac{(x'-c)^2}{2\ell^2}\right) \calcd c \\
+\qquad \qquad = \sqrt{\pi}\ell\exp\left(-\frac{(x - x')^2}{4\ell^2}\right)
+\end{gather*}
+Squared Exponential Kernel: Infinite SqExp basis functions, everywhere!
+\end{frame}
+
+
+\begin{frame}{Gaussian Process Prediction}
+So how do we do prediction? Just replace inner products $\vphi(\vx)\transpose\vphi(\vx')$ with $k(\vx, \vx')$. Now cost is $O(N^3 + N^2) = O(N^3)$, down from $\infty$ for basis funcs.
+\begin{align}
+p(y_*|\vy) &= \mathcal{N}\Big(y_*;\quad  k(\vx_*, \mat X)\left[k(\mat X, \mat X) + \sigma^2 \mat I_N\right]\inv\vy\,, \nonumber \\
+&\quad k(\vx_*, \vx_*) + \sigma^2  -k(\vx_*, \mat X)\left[k(\mat X, \mat X) + \sigma^2 \mat I_N\right]\inv k(\mat X, \mat \vx_*) \Big)
+\end{align}
+\begin{figure}
+\includegraphics[width=\hsize,trim=2.2cm 0 2.2cm 0,clip]{./figures/gp/regression_basisfunc_prior_post_infinitebasis.pdf}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}{Recap}
+What did we do?
+\begin{enumerate}
+\item Start with a basis function model.
+\item \emph{Integrated out parameters} to directly find \emph{predictive distribution} $p(y_*|\vy)$.
+\item Prediction only depended on \emph{inner products} of feature vectors.
+\item We showed that we could compute inner products with a \emph{kernel function}.
+\item Computational cost down from $\infty$ to $O(N^3)$.
+\item Different \emph{representation} of a basis function model.
+\end{enumerate} \pause
+
+\vspace{0.4cm}
+
+... but what is a Gaussian process?
+\end{frame}
+
+
+\begin{frame}{Priors on Function Values}
+Another way of looking at our model:
+\begin{gather}
+p(y_n|f(\vx_n), \vx_n) = \NormDist{y_n; f(\vx_n), \sigma^2} \\
+p(f(\mat X)) = \NormDist{f(\mat X); \vmu, \mat\Sigma}
+\end{gather}
+Remember: Each parameter \textit{implied} an entire function. So our prior placed a distribution on all the function values.
+
+\vspace{0.4cm}
+
+For a basis function model, find the prior on the vector of function values at each input point, denoted $f(\mat X)$, from the prior on the weights $p(\vtheta) = \NormDist{0, \mat I_M}$
+\begin{gather}
+% \vmu = \Exp{p(\vtheta)}{\Phi(\mat X)\vtheta} = \Phi(\mat X)\vmu_p \\
+\mat\Sigma = \Var{p(\vtheta)}{\Phi(\mat X)\vtheta} = \Phi(\mat X)\Phi(\mat X)\transpose
+\end{gather} \pause
+A Gaussian process specifies $[\Phi(\mat X)\Phi(\mat X)\transpose]_{ij} = \vphi(\vx_i)\transpose\vphi(\vx_j) = k(\vx_i, \vx_j)$ \emph{directly}:
+\begin{equation}
+p(f(X)) = \NormDist{f(X); 0, k(\mat X, \mat X)}
+\end{equation}
+\end{frame}
+
+
+\begin{frame}{So what really is a Gaussian process?}
+See handwritten notes for:
+\begin{itemize}
+\item Definition of Gaussian process
+\item Gaussian processes as distributions on functions
+\item BLR defines a Gaussian process
+\item Find the posterior of a GP
+\end{itemize}
+\end{frame}
+
+
+% \begin{frame}{Gaussian Process Posterior}
+% What is the posterior in a GP?
+% \begin{itemize}
+% \item Can't ask about parameters, there may be infinite number!
+% \item Solution: Only ask questions about the function $f(\vx_*)$, or prediction $y_*$.
+% \end{itemize}
+
+% \vspace{0.3cm}
+
+% \emph{Example}: Given $f \sim \mathcal{GP}(0, k(\cdot, \cdot'))$ and $p(y_n|f(\vx_n), \vx_n)$, \\
+% find $p(f(\vx_*)|\vy, X)$. \pause
+% Usual approach. Start with probability of everything (all relevant variables):
+% \begin{align}
+% p(f(\vx_*), f(X), \vy, X) = \frac{\colchar{$p(\vy|f(X)$}{green}, X)p(f(}{}
+% \end{align}
+
+% \end{frame}
+
+
+
+
+
+
+
+% \begin{frame}{Exercises}
+% Exercises:
+% \begin{itemize}
+% \item Find a cheap way to compute the value of the marginal likelihood of BLR. You will need to expand the density of the Gaussian.
+% \item Using a GP prior with kernel $k(\vx, \vx')$, find the posterior for a new observation $p(y_*|\vy)$.
+% \item What is the difference between the posterior on a new observation and the posterior on a function value?
+% \item See exercises document for more exercises (materials).
+% \end{itemize}
+% \end{frame}
+
+
+\begin{frame}{Recommended reading}
+\begin{itemize}
+\item \citet{gpml} \S 2.1 + \S 2.2
+\end{itemize}
+\end{frame}
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}[t,allowframebreaks]
+\frametitle{References}
+\linespread{1.0}
+\tiny
+\bibliographystyle{abbrv}
+\bibliography{../includes/pi-literature}
+\end{frame}
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

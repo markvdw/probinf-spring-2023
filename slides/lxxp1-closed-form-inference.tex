@@ -1,0 +1,109 @@
+%% Time-stamp: <2019-01-15 14:22:02 (marc)>
+\documentclass[xcolor=x11names,compress, mathserif,handout]{beamer}
+
+\newcommand\hmmax{0}
+\newcommand\bmmax{0}
+
+\usepackage{../includes/MarkMathCmds}
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{Closed-Form Inference}}
+\newcommand{\footertitle}{Closed-Form Inference}
+\newcommand{\location}{Imperial College London}
+\newcommand{\talkDate}{{January 24, 2023}}
+
+
+
+\date{\imperialGray{\talkDate}}
+
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+
+\linespread{1.2} 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%s
+\begin{frame}{Probabilistic Models}
+  Previously we saw:
+  \begin{itemize}
+    \item How to specify probabilistic models.
+    \item Graphical models to derive conditional independencies.
+    \item Finding efficient posteriors using CIs.
+    \item How the inference process worked (discrete variables).
+  \end{itemize} \pause
+
+\vspace{0.4cm}
+Today: Final bit of background mathematics, before we start solving problems with these techniques. \pause
+\begin{itemize}
+\item How to do Bayesian inference with continuous distributions.\pause
+\item Why Bayesian inference is difficult, and why approximations are needed.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Some Notation}
+\begin{itemize}
+%\item Strictly speaking, capitals refer to random values e.g.~$X$, and lower-case refer to outcomes $x$.
+\item Usually, I refer to both a random variable and outcome as a lower-case letter (e.g.~$x$), and let context determine the usage. \pause
+\item As in MML, pmfs/pdfs are determined by their arguments, e.g.~$p(x)$. To be more explicit I may write $p(x) = p_X(x)$. \pause
+\item For conditional distributions especially, you should keep track of which variables are fixed, and which are free. \pause
+\begin{itemize}
+\item E.g.~posterior $p(x|y) = p_{X|Y}(x|y)$, function is over $x$, and $y$ is fixed. \pause
+\item More explicitly: $p_{X|Y}(\cdot|y)$. \pause
+\end{itemize}
+\item When writing general rules, I don't distinguish pdfs and pmfs. \pause
+\begin{itemize}
+\item With slight abuse of notation, can think of a pmf $p(X = x) = \sum_{x'=1}^K \delta(x - x')$. \pause
+\item Integrals turn to sums if you carefully work through.
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Closed-form Inference}
+\begin{myblock}{Inference}
+The procedure of drawing conclusions from observations. \\
+In Bayesian statistics: Computing some conditional distribution (posterior).
+\end{myblock} \pause
+
+\begin{myblock}{Closed-form Expressions}
+A mathematical expression consisting of a finite number of standard operations ($\mathrm{pow}, \exp, \log$, trig, etc). \\
+See \texttt{https://en.wikipedia.org/wiki/Closed-form\_expression}.
+\end{myblock} \pause
+
+\begin{myblock}{Closed-form Inference}
+An inference problem where all relevant quantities (e.g.~posteriors) can be computed in closed-form.
+\end{myblock}
+\end{frame}
+
+
+\begin{frame}{Exchangeable Models}
+Prior Likelihood terminiology
+\end{frame}
+
+
+
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 
