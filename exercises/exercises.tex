@@ -387,6 +387,15 @@ A Gaussian process is defined as a ``collection of a possibly infinite number of
 \end{question}
 
 
+\begin{question}[Gaussian Process shapes]
+Consider the Gaussian process notation
+\begin{align}
+p(\vy, \vy^*) = \NormDist{\begin{bmatrix}\vy \\ \vy^*\end{bmatrix}; \mathbf 0, \begin{bmatrix} k(X, X) & k(X, X^*) \\ k(X^*, X) & k(X^*, X^*) \end{bmatrix}} ,.
+\end{align}
+Given that $\vy \in \Reals^N$ and $\vy^* \in \Reals^{N^*}$, what are the shapes of $k(X, X)$, $k(X, X^*)$, $k(X^*, X)$, $k(X^*, X^*)$
+\end{question}
+
+
 \begin{question}[Determining a GP*]
 \label{q:mean-cov-determine-gp}
 The properties of a Gaussian process are fully determined by its mean and covariance function. T/F?

@@ -1,0 +1,282 @@
+%% Time-stamp: <2019-01-22 14:47:04 (marc)>
+\documentclass[xcolor=x11names,compress, mathserif]{beamer}
+
+\newcommand\hmmax{0}
+\newcommand\bmmax{0}
+
+\usepackage{../includes/MarkMathCmds}
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{Gaussian Processes}}
+\newcommand{\footertitle}{Gaussian Processes}
+\newcommand{\location}{Imperial College London}
+\newcommand{\talkDate}{{January 27, 2023}}
+
+
+
+
+
+\date{\imperialGray{\talkDate}}
+
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+
+
+
+\begin{frame}{Recap: Model}
+\begin{itemize}
+\item Specify prior on weights $p(\vw)$ \pause
+\item Defines distribution on functions through $f(\vx) = \vphi(\vx)\transpose\vw$ \pause
+\item Observe data through likelihood $p(\vy|f(X)) = \prod_{n=1}^N \NormDist{y_n; f(\vx_n), \sigma^2}$
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[t]{Recap: Inference}
+\vspace{-0.5cm}
+\begin{itemize}
+\item Find posterior on weights $p(\vw|\vy)$ \pause
+\item Combine this with $p(\vy^*|\vw)$ to find $p(\vy^*|\vy)$:
+\begin{align*}
+p(\vy_*|\vy) &= \mathcal{N}\Big(\vtheta; \quad \vphi(\vx_*)\transpose\left[\mat I_M + \sigma^{-2}\Phi(\mat X)\transpose \Phi(\mat X)\right]\inv \sigma^{-2}\Phi(\mat X)\transpose\vy \nonumber \\
+& \qquad \qquad \vphi(\vx_*)\transpose\left[\mat I_M + \sigma^{-2}\Phi(\mat X)\transpose\Phi(\mat X)\right]\inv\vphi(\vx_*) + \sigma^2\mat I_N \Big)
+\end{align*} \pause
+\item Apply Woodbury to go from $O(NM^2 + M^3) \to O(N^3)$:
+\onslide*<3>{\begin{align*}
+p(y_*|\vy) &= \mathcal{N}\Big(y_*; \quad \vphi(\vx_*)\transpose\Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2 \mat I_N\right]\inv\vy\,, \nonumber \\
+&\qquad \vphi(\vx_*)\transpose\vphi(\vx_*) + \sigma^2 \nonumber \\
+&\qquad -\vphi(\vx_*)\transpose\Phi(\mat X)\transpose\left[\Phi(\mat X)\Phi(\mat X)\transpose + \sigma^2 \mat I_N\right]\inv \Phi(\mat X)\vphi(\vx_*) \Big)
+\end{align*}} \pause
+\onslide*<4->{\item Apply Kernel trick $\vphi(\vx)\transpose\vphi(\vx') = k(\vx, \vx')$
+\begin{align*}
+p(y_*|\vy) &= \mathcal{N}\Big(y_*;\quad  k(\vx_*, \mat X)\left[k(\mat X, \mat X) + \sigma^2 \mat I_N\right]\inv\vy\,, \nonumber \\
+&\quad k(\vx_*, \vx_*) + \sigma^2  -k(\vx_*, \mat X)\left[k(\mat X, \mat X) + \sigma^2 \mat I_N\right]\inv k(\mat X, \mat \vx_*) \Big)
+\end{align*}}
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Today}
+\begin{itemize}[<+->]
+\item Develop interpretation of the maths we got from Woodbury
+\item This is a way of specifying distributions on functions
+\item But without parameters!
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{How do we get rid of parameters?}
+Model:
+\begin{align}
+p(\vw) &= \NormDist{\vw; 0, \mat I_M} \\
+f(\vx) &= \vphi(\vx)\transpose\vw \\
+p(\vy|f(X)) &= \prod_{n=1}^N \NormDist{y_n; f(\vx_n), \sigma^2}
+\end{align} \pause
+
+\vspace{0.3cm}
+Observation: Likelihood only depends on function value \\ \pause
+$\implies$ Can we ignore the distribution on weights, and work directly with function values? \pause
+
+\vspace{0.3cm}
+
+All we are \emph{really} interested in, is: \pause
+\begin{itemize}
+\item Predicting data $p(\vy^*|\vy)$ \pause
+\item Predicting function values $p(f(X^*))|\vy)$
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Distribution on Function Values}
+Let's start by analysing distribution on function values $p(f(X))$ {\tiny (board)} \pause
+
+\begin{itemize}
+\item Function values are linear transformation of Gaussian RV \\
+For arbitrary $N$ inputs arranged in a matrix $X\in\Reals^{N\times D}$:
+\begin{align}
+f(X) = \Phi(X)\vw
+\end{align}\pause
+\vspace{-0.6cm}
+\item As usual $\implies$ Gaussian distributed, and can find mean+var \pause
+\begin{align}
+\Exp{\vw}{f(X)} &= \Exp{\vw}{\Phi(X)\vw} = 0 \\
+\Var{\vw}{f(X)} &= \Exp{\vw}{\Phi(X)\vw\vw\transpose\Phi(X)\transpose} = \Phi(X)\Phi(X)\transpose \\
+\implies p(f(X)) &= \NormDist{f(X); 0, \Phi(X)\Phi(X)\transpose}
+\end{align} \pause
+\vspace{-0.6cm}
+\item All function values are correlated \pause
+\item Kernel trick applies! $[\Phi(X)\Phi(X)\transpose]_{ij} = \vphi(\vx_i)\transpose\vphi(\vx_j) = k(\vx_i, \vx_j)$
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[t]{Predicting}
+Let's focus on $p(f(X^*)|\vy)$.
+\begin{align*}
+p(f(X^*)|\vy) &\overset{\text{AT}}{=} \frac{\int p(\vy, f(X), f(X^*))\,\, \calcd f(X)}{p(\vy)} \\
+&\overset{\text{MA}}{=} \frac{\int p(\vy|f(X)) \, p(f(X), f(X^*)) \,\,\calcd f(X)}{p(\vy)}
+\end{align*} \pause
+
+\vspace{-0.6cm}
+
+\onslide*<2>{
+\begin{align*}
+p(f(X), f(X^*)) &= \NormDist{\begin{bmatrix}f(X) \\ f(X^*)\end{bmatrix}; 0, \begin{bmatrix} \Phi(X)\Phi(X)\transpose & \Phi(X)\Phi(X^*) \\ \Phi(X^*)\Phi(X)\transpose & \Phi(X^*)\Phi(X^*)\transpose\end{bmatrix}}
+\end{align*}}
+\onslide*<3->{
+\begin{align*}
+p(f(X), f(X^*)) &= \NormDist{\begin{bmatrix}f(X) \\ f(X^*)\end{bmatrix}; 0, \begin{bmatrix} k(X, X) & k(X, X^*) \\ k(X^*, X) &  k(X^*, X^*)\end{bmatrix}}
+\end{align*}} \pause \pause
+Easiest way: Find joint, Gaussian conditioning {\tiny (board)}
+\begin{gather}
+\NormDist{\begin{bmatrix}f(X^*) \\ \vy\end{bmatrix}; 0, \begin{bmatrix}k(X^*, X^*) & k(X^*, X) \\ k(X, X^*) & k(X, X) + \sigma^2 \mat I_N\end{bmatrix}}
+\end{gather} \pause
+\vspace{-0.3cm}
+\begin{align*}
+p(f(X^*)|\vy) = \mathcal N &\Big(f(X^*); \qquad k(X^*, X)\left[k(X, X) + \sigma^2\mat I_N\right]\inv\vy, \\
+&k(X^*, X^*) - k(X^*, X)\left[k(X, X) + \sigma^2\mat I_N\right]\inv k(X, X^*)\Big)
+\end{align*}
+\end{frame}
+
+
+
+
+
+\begin{frame}{What is a Gaussian Process?}
+\begin{itemize}
+\item Same as what we get from BLR + Woodbury + kernel trick! \pause
+\item No need for parameters, only kernel $k$! \pause
+\end{itemize}
+
+\begin{center}
+Who needs parameters? \pause \\
+$\implies$ Can answer any prediction question \\ using only distribution on function \textit{values}.
+\end{center}
+\end{frame}
+
+\begin{frame}{What is a Gaussian Process?}
+\begin{center}
+A (possibly infinite) collection of Random Variables \\ \pause
+such that each finite collection has a Gaussian distribution.
+\end{center} \pause
+
+Properties
+\begin{itemize}
+\item I will index this collection with $x$.
+\item For this to be a valid collection of RVs, sum rule must hold: \pause
+\begin{align}
+p(f(x_1), f(x_2)) = \int p(f(x_1), f(x_2), f(x_3)) \calcd f(x_3)
+\end{align}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Specifying Gaussian Processes}
+Can specify the function value densities $p(f(X))$ using:
+\begin{itemize}
+\item Mean function $\mu: \mathcal X \to \Reals$
+\item Covariance function $k: \mathcal X \times \mathcal X \to \Reals$
+\end{itemize} \pause
+\begin{gather*}
+p(f(X)) = \NormDist{f(X); \mu(X), k(X, X)} \\
+\mu(X) \in \Reals^{N} \qquad \qquad k(X, X) \in \Reals^{D\times D} \\
+[\mu(X)]_i = \mu(\vx_i) \qquad \qquad [k(X, X)]_{ij} = k(\vx_i, \vx_j)
+\end{gather*} \pause
+
+Covariance function $k(\cdot, \cdot)$ must be a positive definite function. I.e.~$k(X, X)$ is PSD for any choice of $X$.
+\end{frame}
+
+
+
+\begin{frame}{BLR Specifies a GP}
+\begin{itemize}
+\item BLR specifies a density of a collection of RVs \pause
+\item Collection of random variables is \emph{function values} at all locations
+\begin{align}
+p(f(X)) &= \NormDist{f(X); 0, \Phi(X)\Phi(X)\transpose} \\
+&= \NormDist{f(X); 0, k(X, X)}
+\end{align} \pause
+\item $\implies$ BLR specifies a GP and a kernel \pause
+\item Directly specifying a kernel, also specifies a GP \pause
+\item We viewed BLR as specifying a distribution on functions
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}{GPs as distributions on functions}
+Can we view a GP as a distribution on functions? \pause \\
+\arrow Yes! Kolmogorov Extension Theorem (not examined). \\ \pause
+% \begin{itemize}
+% \item Given an index set $\mathcal X$, \\ elements $x\in\mathcal X$ of which index random variables $f(x)$.
+% \item If for arbitrary finite subsets $X \subset \mathcal X$ \\ \pause
+% \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Conclusion}
+\begin{itemize}
+\item Covariance functions / kernels specify GPs \pause
+\item GPs specify distributions on function values directly \pause
+\item To make predictions, we only need distributions on function values \pause
+\item So who needs parameters? \pause
+\item BLR specifies a GP
+\end{itemize}
+\end{frame}
+
+
+
+
+
+
+
+\begin{frame}{Recommended reading}
+\begin{itemize}
+\item \citet{gpml} \S 2.1 + \S 2.2
+\end{itemize}
+\end{frame}
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}[t,allowframebreaks]
+\frametitle{References}
+\linespread{1.0}
+\tiny
+\bibliographystyle{apalike}
+\bibliography{../includes/pi-literature}
+\end{frame}
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 
