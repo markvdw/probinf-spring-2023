@@ -901,48 +901,19 @@ $p(\vy| \vf, X, X^*) = p(\vy| \vf, X)$ is obvious from model assumptions.
 Based on the joint, we cannot find $p(\vf)$ or $p(\vy)$ as we require $p(X, X^*)$ to evaluate these densities.
 
 \subsection{\questionref{q:gm-hierarchical-models}}
-The graphical model for the PoE given in Q\ref{q:poe-hierarchical-models} can be drawn for vector variables $\vy$, $\vf$, $\vtheta$ as in Fig.~\ref{fig:gm-hierarchical} (left-hand side). However, we can be more specific about the relationship between variables by splitting up the vectors $\vf$ and $\vy$ into scalar variable nodes (Fig.~\ref{fig:gm-hie¯rarchical}, centre and right-hand side). As we have not been told which variables were observed, all nodes are left unshaded.
-
 \begin{figure}[h]
 \centering
 \begin{tikzpicture}
-  \node[latent](theta) at (0,2.8) {$\vtheta$};
-  \node[latent](f) at (0,1.4) {$\vf$};
-  \node[latent](y) at (0,0) {$\vy$};
-  \edge{theta}{f};
-  \edge{f}{y};
-%  \plate {xy} {(x)(y)} {$n=1,\dotsc, N$} ;
-\end{tikzpicture}
-\hspace{1.0cm}
-\begin{tikzpicture}
-  \node[latent](theta) at (0.3,2.8) {$\vtheta$};
-  \node[latent](f1) at (-1,1.4) {$f_1$};
-  \node[latent](y1) at (-1,0) {$y_1$};
-  \node[latent](f2) at (0,1.4) {$f_2$};
-  \node[latent](y2) at (0,0) {$y_2$};
-  \node[latent](fN) at (1.4,1.4) {$f_N$};
-  \node[latent](yN) at (1.4,0) {$y_N$};
-  \edge{theta}{f1};
-  \edge{theta}{f2};
-  \edge{theta}{fN};
-  \edge{f1}{y1};
-  \edge{f2}{y2};
-  \edge{fN}{yN};
-  \node(fdots) at (0.7,1.4) {$\ldots$};
-  \node(ydots) at (0.7,0) {$\ldots$};
-\end{tikzpicture}
-\hspace{1.0cm}
-\begin{tikzpicture}
-  \node[latent](theta) at (0,2.8) {$\vtheta$};
-  \node[latent](fn) at (0,1.4) {$f_n$};
+  \node[latent](theta) at (-3.0,0) {$\vtheta$};
+  \node[latent](fn) at (-1.5,0) {$\vf$};
   \node[latent](yn) at (0,0) {$y_n$};
   \edge{theta}{fn};
   \edge{fn}{yn};
-  \plate[xshift=0.3cm] {fy} {(fn)(yn)} {\hspace{0.3cm}$n=1:N$};
+  \plate[xshift=0.3cm] {fy} {(yn)} {\hspace{0.3cm}$n=1:N$};
 \end{tikzpicture}
-\caption{Graphical model representations for the hierarchical model in question~\ref{q:poe-hierarchical-models}. The left diagram represents variables as vectors, centre and right diagrams represent the individual elements of $\vf$ and $\vy$ as separate nodes. We have used plate notation in the right hand diagram.}
 \label{fig:gm-hierarchical}
 \end{figure}
+As an alternative, you could perform an always true product rule decomposition on $\vf$ as $p(\vf) = p(f_1)p(f_2|f_1)p(f_3|f_2,f_1)\dots$. This would result in a more complicated graphical model, which would also represent the dependence of $y_n$ on \emph{only} $f_n$.
 
 
 \subsection{\questionref{q:gm-reflection}}
