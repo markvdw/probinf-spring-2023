@@ -1,0 +1,455 @@
+%% Time-stamp: <2019-01-22 14:47:04 (marc)>
+\documentclass[xcolor=x11names,compress, mathserif]{beamer}
+
+\newcommand\hmmax{0}
+\newcommand\bmmax{0}
+
+
+\usepackage{../includes/MarkMathCmds}
+
+\newcommand{\gpf}[1]{f_{#1}}
+\newcommand{\gpfd}{\gpf{X}}
+\newcommand{\gpfp}{\gpf{\vx_*}}
+\newcommand{\gpfdp}{\gpf{X,\vx_*}}
+
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{Model Selection}}
+\newcommand{\footertitle}{Model Selection}
+\newcommand{\location}{Imperial College London}
+\newcommand{\talkDate}{{January 30, 2023}}
+
+
+
+
+\date{\imperialGray{\talkDate}}
+
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+
+
+\begin{frame}{A Note on Notation}
+In Gaussian processes, we are building a \emph{conditional} model of the data, with PoE:
+\begin{align*}
+p(\vy, f(X), \vy^*, f(X^*)|X, X^*) = \left[\prod_{n=1}^N p(y_n | f(\vx_n), \vx_n) \right]&\left[\prod_{t=1}^T p(y^*_t | f(\vx_t), \vx_n) \right]  \\
+&p(f(X), f(X) | X, X^*)
+\end{align*}
+With the additional property that
+\begin{align*}
+p(f(X), f(X^*)|X, X^*) &\overset{\text{AT}}{=} p(f(X^*)|f(X), X, X^*) p(f(X)|X, X^*) \\
+&\overset{\text{AT}}{=} p(f(X)|f(X^*), X, X^*) p(f(X^*)|X, X^*) \\
+&\overset{\text{MA}}{=} p(f(X^*)|f(X), X, X^*) p(f(X)|X) \\
+&\overset{\text{MA}}{=} p(f(X)|f(X^*), X, X^*) p(f(X^*)|X^*)
+\end{align*}
+(You can prove this by finding the marginal of $p(f(X), f(X^*))$)
+\end{frame}
+
+
+\begin{frame}{A Note on Notation}
+\begin{itemize}
+\item You are expected to be able to derive these things, if necessary \\ (see exercise in question sheet) \pause
+\item However, for conditional models, we can simplify notation. \pause
+\item \arrow If not otherwise specified, for PoEs specified conditionally, \\you may drop what is conditioned on:
+\begin{align}
+p(z, x{\color{red}|w, y}) = p(x|z, {\color{red}w, y})p(z{\color{red}|w,y})
+\end{align} \pause
+\vspace{-0.6cm}
+\item Since we care mostly about the interaction between observed an unobserved quantities. \pause
+\end{itemize}
+
+For GPs:
+\begin{align*}
+p(\vy, f(X), \vy^*, f(X^*)) = \left[\prod_{n=1}^N p(y_n | f(\vx_n)) \right]&\left[\prod_{t=1}^T p(y^*_t | f(\vx_t)) \right] p(f(X), f(X))
+\end{align*}
+\end{frame}
+
+
+\begin{frame}{Learning objectives}
+How to select the right prior assumptions
+\begin{itemize}
+  \item What makes a valid kernel?
+  \item Influence of a kernel on the GP prior.
+  \item Influence of the GP prior on the posterior.
+  \item Bayes' rule for inferring hyperparameters.
+  \item The maximum a-posteriori approximation (MAP).
+  \item Some practical issues.
+  % \item How maximum likelihood overfits
+  % \item Marginal likelihood as incremental prediction
+  % \item Trade-off between model complexity and model fit
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Kernels}
+We constructed two kernels from inner products:
+\begin{itemize}
+\item $k(x, y) = (xy + 1)^{M-1} = \sum_{m=0}^{M-1} {M-1 \choose m}x^my^m = \vphi(x)\transpose\vphi(y)$
+\item $k(\vx, \vy) = \exp\left(-\frac{(\vx - \vy)^2}{2\ell^2}\right) = \lim_{M\to\infty} \vphi_M(\vx)\transpose\vphi_M(\vy)$
+\end{itemize}
+
+\vspace{0.3cm}
+
+Property: Kernels constructed from inner products are \emph{positive- (semi)definite} functions, i.e. for any set of input points $\mat X$ we have:
+\begin{align}
+\vv\transpose k(\mat X, \mat X) \vv = \sum_{i}\sum_j v_i k(\vx_i, \vx_j) v_j \geq 0
+\end{align}
+{\scriptsize Remember: $\left[k(\mat X, \mat Z)\right]_{ij} = k(\vx_i, \vz_j)$, where $\mat X$ and $\mat Z$ are stacked vectors $\{\vx_i\}$ and $\{\vz_i\}$.}
+
+Proof: We constructed the kernel as $k(\vx, \vz) = \phi(\vx)\transpose\phi(\vz)$, so:
+\begin{align}
+\sum_{ij} v_i \phi(\vx_i)\transpose\phi(\vx_j)v_j = \sum_{i} \boldsymbol\alpha_i\transpose \sum_{j}\boldsymbol\alpha_j = \boldsymbol\beta\transpose\boldsymbol\beta \geq 0
+\end{align}
+
+{\scriptsize \emph{Mercer's theorem} proves converse. \\
+Using any positive semidefinite function as a covariance function for Gaussian distributions gives a valid GP (see Kolmogorov extension theorem).}
+\end{frame}
+
+
+\begin{frame}{Properties of Kernels}
+For PSD kernels $k, k_1, k_2$ we have
+\begin{align}
+k(\vx, \vx) &\geq 0 && \text{Take single point.}\\
+k(\vx, \vx')^2 &\leq k(\vx,\vx)k(\vx',\vx') && \text{Cauchy-Schwarz}\\
+\vv\transpose(k_1(\mat X, \mat X) + k_2(\mat X, \mat X))\vv &\geq 0 && \text{i.e. $k_1 + k_2$ is kernel}\\
+\vv\transpose(k_1(\mat X, \mat X) \circ k_2(\mat X, \mat X))\vv &\geq 0 && \text{i.e. $k_1 \cdot k_2$ is kernel}
+\end{align}
+
+\vspace{0.2cm}
+
+Also:
+\begin{itemize}
+\item $k(h(\vx), h(\vx'))$ is a kernel for a deterministic function $h(\cdot)$.
+\item $h(\vx)k(\vx, \vx')h(\vx')$ is a kernel for deterministic function $h(\cdot)$.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Effect of kernel on GP prior}
+See Jupyter notebook \texttt{kernel-zoo.ipynb}.
+\end{frame}
+
+
+
+\begin{frame}{Goal: Predict at new points}
+Remember our goal:
+\begin{center}
+\Large Use training set \\ to make good predictions at \emph{new unseen inputs}.
+\end{center}
+
+Measure generalisation accuracy using \emph{log predictive density}, i.e.~the predictive density evaluated at a point in the test set. This estimates the accuracy on future data drawn from the same distribution.
+\begin{gather}
+\text{lpd} = \sum_{n=1}^{N_t} \log p(y^*_n\given \vx^*_n, X, \vy, \theta)\,, \qquad \text{for test set } \left\{\vx_n^*, y_n^*\right\}_{n=1}^{N_t} \\
+p(y_n^*\given \vx_n^*, X, \vy, \theta) = \int \underbrace{p(y_n^*\given f(\vx_n), \vx_n, \theta)}_{\text{likelihood}} \underbrace{p(f(\vx_n)\given X, \vx_n, \vy, \theta)}_{\text{}} \calcd{f(\vx_n)}
+\end{gather}
+\end{frame}
+
+
+
+
+
+
+
+\begin{frame}{Influence of prior on posterior}
+\begin{figure}[T]
+\onslide*<1>{Dataset 1: \\\includegraphics[height = 3.8cm]{./figures/model_selection/data2_00_model2_00.png}}
+\onslide*<2>{Dataset 1: \\\includegraphics[height = 3.8cm]{./figures/model_selection/data2_00_model0_63.png}}
+\onslide*<3>{Dataset 1: \\\includegraphics[height = 3.8cm]{./figures/model_selection/data2_00_model0_20.png}}
+\onslide*<4>{Dataset 2: \\\includegraphics[height = 3.8cm]{./figures/model_selection/data0_63_model2_00.png}}
+\onslide*<5>{Dataset 2: \\\includegraphics[height = 3.8cm]{./figures/model_selection/data0_63_model0_63.png}}
+\onslide*<6>{Dataset 2: \\\includegraphics[height = 3.8cm]{./figures/model_selection/data0_63_model0_20.png}}
+\onslide*<7>{Dataset 3: \\\includegraphics[height = 3.8cm]{./figures/model_selection/data0_20_model2_00.png}}
+\onslide*<8>{Dataset 3: \\\includegraphics[height = 3.8cm]{./figures/model_selection/data0_20_model0_63.png}}
+\onslide*<9>{Dataset 3: \\\includegraphics[height = 3.8cm]{./figures/model_selection/data0_20_model0_20.png}}
+\end{figure}
+% \vspace{-0.5cm}
+\begin{itemize}
+\item More flexibility in the model
+\item Faster increase in uncertainty away from data
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{What is model selection}
+\begin{itemize}
+\item Given a prior, we can make predictions with uncertainty.
+\item Different priors make different predictions of different quality.
+\item Different tasks need different priors.
+\end{itemize}
+
+\pause
+
+\begin{center}
+\Large How do we select the right prior for the task? \\
+\vspace{0.5cm}
+\pause
+$\to$ Model selection
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}{Bayesian approach}
+Let's follow the Bayesian approach.
+
+\begin{center}
+Hyperparameters are simply  \pause \\
+yet another {\Large \bf unobserved quantity} \\\pause
+which we can infer with {\Large \bf Bayes' rule}. \pause
+\end{center}
+
+\begin{align}
+p(\gpfdp|\vy, \theta) = \frac{p(\vy, \gpfdp | \theta)}{p(\vy|\theta)} = \frac{p(\vy|\gpfd, \theta)p(\gpfdp|\theta)}{p(\vy|\theta)}
+\end{align}
+
+\begin{itemize}
+\item I use $\gpfdp$ as shorthand for $\begin{bmatrix}f(\mat X)\transpose & f(\vx_*)\end{bmatrix}\transpose \in \Reals^{N+1}$.
+\item Here, I drop the conditioning on the inputs.
+\item If \textit{explicitly asked} on an exam, you must be able to correctly specify what inputs a distribution depends on.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Bayes for hyperparameters}
+  Bayes' rule for everything:
+  \begin{align}
+    p(\gpfdp, \theta \given \vy) = \frac{p(\vy, \gpfdp, \theta)}{p(\vy)} = \frac{p(\vy\given \gpfd, \theta) p(\gpfdp|\theta) p(\theta)}{p(\vy)}
+  \end{align}
+  \pause
+\vspace{-0.5cm}
+  \begin{align}
+    \qquad\quad\, = \underbrace{\frac{p(\vy\given \gpfd, \theta) p(\gpfdp|\theta)}{p(\vy\given \theta)}}_{p(\gpfdp|\vtheta,\vy)} \underbrace{\frac{p(\vy\given \theta) p(\theta)}{p(\vy)}}_{p(\theta\given \vy)}
+  \end{align}
+  \pause
+
+  Posterior over $f$ and $\theta$ consists of two parts \pause
+  \begin{enumerate}
+  \item The original posterior over $f$, \pause
+  \item A posterior over $\theta$ using the \emph{marginal likelihood}:
+    \begin{align}
+      p(\vy | X, \theta) = \int p(\vy | f(X), X, \theta) p(f(X)|\theta) \calcd{f(X)}
+    \end{align}
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Marginal likelihood surface}
+  \begin{enumerate}
+  \item To predict $f$, we need to take into account all uncertainty over both $f$ and $\theta$
+    \begin{align}
+      p(f(\vx^*)|\vy, X) = \int p(f(\vx^*)\given \vy, X, \theta) p(\theta\given \vy, X) \calcd{\theta}
+    \end{align}
+
+  \item We take a $p(\theta)$ which is uniform over a large range of values
+    \begin{align}
+      p(\theta|\vy, X) \approx \frac{1}{Z}p(\vy\given X, \theta)
+    \end{align}
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Marginal likelihood surface}
+Visualisation of hyperparameter posterior $p(\theta | \vy, X) \approx p(\vy | X, \theta)$:
+\vspace{-0.6cm}
+\begin{figure}[T]
+\includegraphics[height = 5.0cm]{./figures/model_selection/marglik-surface.png}
+\end{figure}
+\vspace{-0.3cm}
+\begin{itemize}
+  \item Several plausable hyperparameters
+  \item Predictions should take posterior uncertainty into account!
+\end{itemize}
+\begin{center}
+  Try for yourself: \url{https://drafts.distill.pub/gp/}
+\end{center}
+\end{frame}
+
+\begin{frame}{Intractable inference}
+To make a prediction, we need to compute
+    \begin{align}
+      p(f(\vx^*)|\vy, X) = \int p(f(\vx^*)\given \vy, X, \theta) p(\theta\given \vy, X) \calcd{\theta}
+    \end{align}
+\pause
+No closed-form solution for this integral. Inference is \textbf{intractable} \pause :(
+\pause
+\begin{align}
+p(\theta\given \vy, X) = \frac{p(\vy\given X, \theta) p(\theta)}{{\color{red}p(\vy|X)}} = \frac{p(\vy\given X, \theta) p(\theta)}{{\color{red}\int p(\vy|\theta, X)p(\theta) \calcd{\theta}}}
+\end{align}
+\pause
+\begin{itemize}
+  \item We can compute the \emph{relative} plausibility of a finite number of hyperparameters,
+  \item but the prediction needs to know the weight relative to the total volume of \emph{all} hyperparameters.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Practical solution}
+\begin{itemize}
+  \item Many approximations exist when closed-form solutions don't (variational, MCMC, ...) \pause
+  \item One pragmatic approximation is to \emph{ignore uncertainty in $\theta$}.
+\end{itemize}
+\pause
+\begin{align}
+p(\theta|\vy, X) \approx \delta(\theta - \hat{\theta}) \,, \qquad \hat{\theta} = \argmax_\theta p(\vy\given\theta, X) p(\theta)
+\end{align}
+\begin{itemize}
+\item Maximum a-posteriori (MAP) approximation \pause
+\item Found by numerically optimising $p(\vy|\theta, X)p(\theta)$, using \emph{gradients}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Numerical optimisation}
+\begin{figure}[T]
+\includegraphics[height = 5.0cm]{./figures/model_selection/marglik-surface.png}
+\end{figure}
+
+\begin{itemize}
+\item Gradients indicated on image push you towards optima
+\item Surface is non-convex, so we can end up in multiple solutions
+\item Which one we end up in, depends on starting point
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{How to optimise}
+We are searching for $\argmax_\theta p(\vy\given\theta, X) p(\theta)$, so
+\begin{itemize}
+  \item Random re-starts at different locations
+  \item Pick the $\theta$ with the highest value of $p(\vy\given\theta, X) p(\theta)$
+  \item Pick a good initialisation based on your data
+\end{itemize}
+\pause
+\vspace{-0.3cm}
+\begin{figure}
+\includegraphics[height = 3cm]{./figures/model_selection/data2_00_model2_00.png}
+\end{figure}
+\vspace{-0.4cm}
+\begin{itemize}
+\item Lengthscale appropriate to input range
+\item Variance appropriate to output range
+\item Noise scale based on how ``predictable'' you think the dataset is
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{When is MAP ok?}
+\begin{itemize}
+  \item More data $\rightarrow$ less uncertainty in $\theta$\\
+$\rightarrow$ delta more appropriate
+  \item More data $\rightarrow$ fewer local optima \\
+$\rightarrow$ optimisation more likely to work
+\item More parameters in $\theta$, same data $\rightarrow$ uncertainty increases \\
+$\rightarrow$ delta less appropriate
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Example}
+\vspace{-5mm}
+\onslide*<1>{
+\begin{figure}
+\centering
+\includegraphics[height = 6cm]{./figures/model_selection/data_model_selection}
+\end{figure}
+}
+\onslide*<2>{
+\begin{figure}
+\centering
+\includegraphics[height = 6cm]{./figures/model_selection/model_selection_const}
+\end{figure}
+}
+\onslide*<3>{
+\begin{figure}
+\centering
+\includegraphics[height = 6cm]{./figures/model_selection/model_selection_lin}
+\end{figure}
+}
+\onslide*<4>{
+\begin{figure}
+\centering
+\includegraphics[height = 6cm]{./figures/model_selection/model_selection_matern3}
+\end{figure}
+}
+\onslide*<5>{
+\begin{figure}
+\centering
+\includegraphics[height = 6cm]{./figures/model_selection/model_selection_gauss}
+\end{figure}
+}
+\vspace{-3mm}
+\begin{itemize}
+\item Four different kernels (mean function fixed to $m\equiv 0$)
+\item MAP hyper-parameters for each kernel
+\item Log-marginal likelihood values for each (optimized) model
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Fitting a real dataset}
+See Jupyter notebook \texttt{mauna.ipynb}.
+\end{frame}
+
+
+
+\begin{frame}{Conclusion}
+\begin{itemize}
+\item The assumptions in the prior distribution affect the posterior, and its generalisation characteristics
+\item We can apply Bayes rule to find the posterior over hyperparameters
+\item Bayesian integrals are hard, but maximising the posterior (MAP) can be reasonable
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Further reading}
+\begin{itemize}
+\item \nocite{gpml} Rasmussen \& Williams. \textit{Gaussian Processes for Machine Learning}, chapter 5.
+\end{itemize}
+\end{frame}
+
+
+
+
+
+
+
+
+% \nocite{Roberts2013, Krause2008, Deisenroth2015b, Deisenroth2009,Deisenroth2015, Calandra2014,Calandra2015a,
+%   Calandra2014b,  Deisenroth2011c,
+%   Quinonero-Candela2003a, Rasmussen2006, Sutton1998, Bertsekas2005,
+%    Jones1998, Brochu2009, Osborne2009, Bertone2016, Baroukh2014,
+%   Deisenroth2012d, Deisenroth2012,Frigola2013,Kocijan2004,Quinonero-Candela2005}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}[t,allowframebreaks]
+\frametitle{References}
+\linespread{1.0}
+\tiny
+\bibliographystyle{abbrv}
+\bibliography{../includes/pi-literature.bib}
+\end{frame}
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 
