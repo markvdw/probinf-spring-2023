@@ -46,7 +46,7 @@
 \begin{frame}{A Note on Notation}
 In Gaussian processes, we are building a \emph{conditional} model of the data, with PoE:
 \begin{align*}
-p(\vy, f(X), \vy^*, f(X^*)|X, X^*) = \left[\prod_{n=1}^N p(y_n | f(\vx_n), \vx_n) \right]&\left[\prod_{t=1}^T p(y^*_t | f(\vx_t), \vx_n) \right]  \\
+p(\vy, f(X), \vy^*, f(X^*)|X, X^*) = \left[\prod_{n=1}^N p(y_n | f(\vx_n), \vx_n) \right]&\left[\prod_{t=1}^T p(y^*_t | f(\vx_t^*), \vx_n^*) \right]  \\
 &p(f(X), f(X) | X, X^*)
 \end{align*}
 With the additional property that
@@ -74,7 +74,7 @@ p(z, x{\color{red}|w, y}) = p(x|z, {\color{red}w, y})p(z{\color{red}|w,y})
 
 For GPs:
 \begin{align*}
-p(\vy, f(X), \vy^*, f(X^*)) = \left[\prod_{n=1}^N p(y_n | f(\vx_n)) \right]&\left[\prod_{t=1}^T p(y^*_t | f(\vx_t)) \right] p(f(X), f(X))
+p(\vy, f(X), \vy^*, f(X^*)) = \left[\prod_{n=1}^N p(y_n | f(\vx_n)) \right]&\left[\prod_{t=1}^T p(y^*_t | f(\vx_t^*)) \right] p(f(X), f(X^*))
 \end{align*}
 \end{frame}
 
@@ -154,7 +154,7 @@ Remember our goal:
 Measure generalisation accuracy using \emph{log predictive density}, i.e.~the predictive density evaluated at a point in the test set. This estimates the accuracy on future data drawn from the same distribution.
 \begin{gather}
 \text{lpd} = \sum_{n=1}^{N_t} \log p(y^*_n\given \vx^*_n, X, \vy, \theta)\,, \qquad \text{for test set } \left\{\vx_n^*, y_n^*\right\}_{n=1}^{N_t} \\
-p(y_n^*\given \vx_n^*, X, \vy, \theta) = \int \underbrace{p(y_n^*\given f(\vx_n), \vx_n, \theta)}_{\text{likelihood}} \underbrace{p(f(\vx_n)\given X, \vx_n, \vy, \theta)}_{\text{}} \calcd{f(\vx_n)}
+p(y_n^*\given \vx_n^*, X, \vy, \theta) = \int \underbrace{p(y_n^*\given f(\vx_n^*), \vx_n^*, \theta)}_{\text{likelihood}} \underbrace{p(f(\vx_n^*)\given X, \vx_n^*, \vy, \theta)}_{\text{}} \calcd{f(\vx_n^*)}
 \end{gather}
 \end{frame}
 
