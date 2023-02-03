@@ -1,0 +1,418 @@
+%% Time-stamp: <2019-01-22 14:47:04 (marc)>
+\documentclass[xcolor=x11names,compress, mathserif]{beamer}
+\newcommand\hmmax{0}
+\newcommand\bmmax{0}
+
+\usepackage{../includes/MarkMathCmds}
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{Challenges for Gaussian processes}}
+\newcommand{\footertitle}{Challenges for Gaussian processes}
+\newcommand{\location}{Imperial College London}
+\newcommand{\talkDate}{{February 4, 2022}}
+
+
+
+
+\date{\imperialGray{\talkDate}}
+
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+
+
+\begin{frame}{Methods for Regression in ML}
+Most tasks in ML are regression! Deep learning is 99\% regression!
+
+\vspace{0.2cm} \pause
+
+Remember where GPs excel:
+\begin{itemize}
+\item are low dimensional (e.g. tens of dimensions rather than 100s),
+\item have little data (or data is expensive to obtain),
+\item are noisy (random fluctuations that obscure the signal),
+\item require uncertainty estimates.
+\end{itemize} \pause
+
+\vspace{0.3cm}
+
+Today: Where GPs struggle, and why.
+\end{frame}
+
+
+
+\begin{frame}{Learning objectives}
+Know how to perform the computations necessary for GPs
+\begin{itemize}
+  \item Computing the marginal likelihood
+  \item Computational complexity
+  \item Low-rank approximations
+\end{itemize}
+
+\vspace{0.3cm}
+\pause
+Understand the computational and modelling limitations of GPs
+\begin{itemize}
+\item Limitations of stationary kernels
+\item Limitations of local kernels in high-dimensions
+\end{itemize}
+\end{frame}
+
+
+
+\newcommand{\mK}{\mathbf{K}}
+\newcommand{\mKt}{\mK_\theta}
+\newcommand{\eye}{\mathbf{I}}
+\newcommand{\mQ}{\mathbf{Q}}
+\newcommand{\mLambda}{\mathbf{\Lambda}}
+
+\begin{frame}{Training a GP: Computations}
+  To train, we need the marginal likelihood and its gradient:
+  \begin{align}
+    \log p(\vy\given\theta) &= \text{const} - \frac{1}{2} \log\detbar{\mathbf{K}_\theta+\sigma^2\eye} - \frac{1}{2}\vy\transpose(\mathbf{K}_\theta+\sigma^2\mathbf{I})\inv\vy \\
+    \pderiv[]{\theta}\log p(\vy\given\theta) &= \frac{1}{2}\Tr\left[\left(\mKt\inv\vy\vy\transpose\mKt - \mKt\inv\right)\pderiv[\mKt]{\theta}\right]
+  \end{align}
+
+  \vspace{0.3cm}
+  \pause
+
+  $(\dots)\inv$ and $\detbar{\dots}$ are calculated from a \emph{matrix decomposition}.
+  \begin{itemize}
+    \item Decompositions are expensive
+    \item But make follow-on operations cheap
+    \item The correct decomposition helps numerical stability\footnote{\texttt{https://nhigham.com/2020/08/04/what-is-numerical-stability/}}
+    \item Directly computing the inverse (\texttt{np.linalg.inv()}) is a bad thing to do!
+  \end{itemize}
+\end{frame}
+
+
+\newcommand{\mL}{\mathbf{L}}
+\begin{frame}{Eigenvalue decomposition}
+We can compute the terms using the \emph{eigenvalue decomposition}:
+\begin{gather}
+\mathbf{Q}\mathbf{\Lambda}\mathbf{Q}\transpose = \mKt + \sigma^2\eye \\
+\log\detbar{\mKt+ \sigma^2\eye}\!=\!\log\detbar{\mQ\mLambda\mQ\transpose} = \cancelto{0}{2\log\detbar{\mQ}} + \log\detbar{\mLambda} = \sum_{n=1}^N \log\lambda_i(\mKt + \sigma^2\eye) \\
+\vy\transpose(\mKt + \sigma^2\eye)\inv\vy = \vy\transpose\mQ\transpose\mLambda\inv\mQ\vy
+\end{gather}
+
+\vspace{0.3cm}
+
+Eigenvalue decomposition is mostly applied for \emph{theoretical analysis}.
+\end{frame}
+
+
+
+\begin{frame}{Cholesky decomposition}
+Or alternatively the \emph{Cholesky decomposition}:
+\begin{gather}
+\mL\mL\transpose = \mKt + \sigma^2\eye\,, \qquad \text{where } \mL \text{ is lower triangular.} \\
+\log\detbar{\mKt + \sigma^2\eye} = \log\detbar{\mL\mL\transpose} = 2 \sum_{n=1}^N \log \left[\mL\right]_{nn} \\
+\vy\transpose(\mKt + \sigma^2\eye)\inv\vy = \vy\transpose{\mL\transpose}\inv\mL\inv\vy
+\end{gather}
+
+Cholesky decomposition is used for \emph{practical implementation}.\pause
+
+(For the coursework, all implementations are fine.)
+\end{frame}
+
+
+
+
+
+\begin{frame}{Computational complexity}
+
+  \begin{enumerate}
+  \item Computing kernel matrix 
+    $O(N^2)$ time and $O(N^2)$ space
+  \item Eigendecomp and Cholesky are both often quoted to be $O(N^3)$ time.\footnote{Algorithms do exist with better asymptotic complexity, but they are definitely slower than $O(N^2)$.}
+  \item Logdet or inverse given the decomposition are fast
+    \begin{itemize}
+    \item Logdet for both are $O(N)$
+    \item Inverse is $O(N^2)$
+    \end{itemize}
+  \end{enumerate}
+
+\vspace{0.3cm} \pause
+
+\begin{center}
+Can we take advantage of structure in the kernel matrix to do better?
+\end{center}
+\end{frame}
+
+
+
+
+\newcommand{\mP}{\mathbf{P}}
+\begin{frame}{Low-rank kernels}
+  For kernel matrices that are low-rank (have some zero eigenvalues), i.e.~with $M\ll N$
+  \begin{align}
+    \mK = \mP\mP\transpose\,, \qquad \text{where } \mK\in \Reals^{N\times N}\,, \mP\in \Reals^{N\times M}
+  \end{align}
+  \pause
+  we can compute the marginal likelihood more cheaply:\footnote{Can be proved by applying the Woodbury Matrix Identity, and the similar Matrix Determinant Lemma.}
+  \begin{align}
+    \log\detbar{\mK + \sigma^2\eye_N} &= \log\detbar{\sigma^2\eye_N} + \log\detbar{\eye_M + \sigma^{-2}\mP\transpose\mP} \\
+\vy\transpose(\mK + \sigma^2\eye_N)\inv\vy &= \vy\transpose\left(\sigma^{-2}\eye_N - \sigma^{-2}\mP(\sigma^2\eye_M + \mP\transpose\mP)\inv\mP\transpose\right)\vy
+  \end{align}
+
+\vspace{0.2cm}
+\pause
+
+\begin{center}
+Can be computed in $O(NM^2 + M^3)$.
+\end{center}
+\end{frame}
+
+
+
+
+\begin{frame}{Decaying eigenvalues}
+For example, the squared exponential kernel
+\begin{align}
+k(x, x') = \sigma_f^2 \exp\left(\frac{\norm{x-x'}^2}{2\ell^2}\right) \,, \qquad \theta = \{\sigma_f, \ell\}
+\end{align}
+with 1D inputs i.i.d.~from\footnote{Conditions can be much weaker, but this is easier.} $\NormDist{0, \sigma_D^2}$, we have that the eigenvalues of $\mK$ decay exponentially
+\begin{gather}
+\lambda_m = \sqrt{\frac{2a}{A}}B^m\qquad\text{with }B < 1 \\
+a\inv = 4\sigma_D^2\,,\,\,\, b\inv = 2\ell^2\,,\,\,\, c = \sqrt{a^2 + 2ab}\,,\,\,\, A = a + b + c\,,\,\,\, B = b/A \nonumber
+\end{gather}
+as the number of data $N\to\infty$.
+\end{frame}
+
+
+
+\newcommand{\mKa}{\hat{\mK}}
+\begin{frame}{Low-rank approximations}
+So we know that for large $N$ our $\mK$ will be \emph{approximately low-rank}. Can we approximate it with a low-rank matrix?
+\begin{align}
+\mK = \mQ\mLambda\mQ\transpose = \begin{bmatrix} \mQ_1 & \mQ_2\end{bmatrix} \begin{bmatrix} \mLambda_1 & \\ & \mLambda_2\end{bmatrix} \begin{bmatrix} \mQ_1\transpose \\ \mQ_2\transpose \end{bmatrix} = \mQ_1\mLambda_1\mQ_1\transpose + \mQ_2\mLambda_2\mQ_2\transpose
+\end{align}
+\pause
+\vspace{-0.3cm}
+\begin{align}
+\mKa = \mQ_1\mLambda_1\mQ_1\transpose + \cancelto{\approx 0}{\mQ_2\mLambda_2\mQ_2\transpose} = \quad \mP\mP\transpose\,, \qquad \text{with } \mP = \mQ_1\mLambda^{\frac{1}{2}}\,.
+\end{align}
+\pause
+This gives the approximation with the minimal Frobenius norm:
+\begin{align}
+\left\lVert\mK - \mKa\right\rVert_\text{F} = \sqrt{\sum_{i=M+1}^N \lambda_i}
+\end{align}
+\end{frame}
+
+
+
+\begin{frame}{Low-rank approximation: Data fit}
+Starting with the data-fit term:\footnote{Applying the identity $(A + B)\inv = A\inv - A\inv B(A+B)\inv$.}
+\begin{align}
+\vy\transpose\left(\mK+\sigma^2\eye\right)\inv\vy &= \vy\transpose(\mKa + \sigma^2\eye + \mK - \mKa)\inv\vy \nonumber \\
+= \vy\transpose(\mKa &+ \sigma^2\eye)\inv\vy - \underbrace{\vy\transpose\left(\mKa + \sigma^2\eye\right)\inv(\mK-\mKa)(\mK + \sigma^2\eye)\inv\vy}_{\to 0 \text{ as } \left\lVert\mK - \mKa\right\rVert_\text{F}\to 0}
+\end{align}
+\pause
+You can place bounds on the error using knowledge of $\lambda_M$ (the final included eigenvalue).
+\end{frame}
+
+\begin{frame}{Low-rank approximation: Complexity penalty}
+And finishing with the complexity penalty:
+\begin{align}
+\log\detbar{\mK+\sigma^2\eye} &= \sum_{n=1}^N \log (\lambda_n(\mK) + \sigma^2) \nonumber \\
+&= \sum_{m=1}^M \log(\lambda_m(\mK) + \sigma^2) + \sum_{r=M+1}^N \log(\underbrace{\lambda_r(\mK) + \sigma^2}_{\approx \sigma^2}) \\
+&\approx \sum_{m=1}^M \log(\lambda_m(\mK) + \sigma^2) + \sum_{r=M+1}^N \log(\sigma^2) \\
+&= \log\detbar{\mKa + \sigma^2\eye}
+\end{align}
+\end{frame}
+
+
+
+
+
+
+\begin{frame}{Low-rank approximations overview}
+  \begin{itemize}
+  \item Learning with exact matrix decompositions is expensive --- \\$O(N^3)$ time, $O(N^2)$ memory
+  \item Low-rank kernels improve things when $N\gg M$ --- \\$O(NM^2)$ time, $O(NM)$ memory
+    \pause
+  \item Low-rank approximations do exist! \pause
+  \item We used an impractical method (eigendecomposition) to find \emph{which} low-rank columns to use, with a cost of $O(N^2M)$ time.
+  \end{itemize}
+\pause
+For certain approximations, we have 1) fast methods for finding $\mP$, and 2) proofs for how large $M$ needs to be.
+
+E.g.~Burt et al [2019] show that for regression and the Squared Exponential kernel, we can get arbitrarily good approximations in
+\onslide*<1>{
+\begin{align}
+O(N(\log N)^{2D}(\log \log N)^2)\qquad\qquad\qquad\qquad\qquad
+\end{align}}
+\onslide*<2,3,4>{
+\begin{align}
+O(N(\log N)^{2D}(\log \log N)^2) = O(N^{1+\epsilon}) \,, \quad \forall \epsilon > 0
+\end{align}}
+
+\end{frame}
+
+
+
+
+
+
+
+\begin{frame}{Practical constraints and implementation}
+  GPs are slow, but often not even because of asymptotic complexity! \pause
+
+  \begin{itemize}
+  \item Memory is often the main bottleneck (storing large matrices). \\ \pause
+This is poorly suited to modern-day hardware \pause (i.e.~GPUs) \pause
+  \item Decompositions require serial computations. \pause \\
+This is poorly suited to modern-day hardware \pause (i.e.~GPUs) \pause
+  \item Decompositions need high floating point precision. \\ \pause
+This is poorly suited to modern-day hardware \pause (i.e.~GPUs)
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{There is hope}
+Approximations can make the computations look more similar to a neural network by
+\begin{itemize}
+\item Reduce the size of the matrix decomposition {\small [Titsias, 2009]} \nocite{Titsias2009}
+\item Improve data parallelism {\small [Hensman et al, 2013]} \nocite{Hensman2013}
+\item Increase reliance on fast matrix-matrix multiplications {\small [Gardner et al, 2018; Wang et al, 2019] \nocite{Gardner2018} \nocite{Wang2019}}
+\item Remove matrix inverses altogether {\small [van der Wilk et al, 2019]} \nocite{Wilk2019}
+\end{itemize}
+
+\pause {\tiny This slide for reference only, not examinable.}
+
+\end{frame}
+
+
+
+
+
+
+
+
+
+\begin{frame}{Implementation matters!}
+We have good asymptotic bounds on the computational complexity!
+
+\vspace{0.3cm}
+
+Constants cause slowness $\implies$ implementation matters
+
+\vspace{0.5cm} \pause
+
+E.g.~\textit{Exact Gaussian Processes on a Million Data Points}, Wang et al [2019] tailors a very good approximation to GPU hardware, with impressive results.
+
+\end{frame}
+
+
+
+
+
+
+\begin{frame}{Conclusions on Computational Issues}
+\begin{itemize}
+\item Gaussian processes are computationally expensive to train
+\item Low-rank approximations to the kernel matrix $\mK$ do exist
+\item Low-rank approximations improve the asymptotic complexity
+\item Still need work to optimise algorithms and tailor to modern hardware
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Modelling limitations}
+We know that the generalisation capability of a model depends strongly on the properties of its prior.
+\begin{center}
+\Large Do we really have good priors?
+\end{center}
+
+\pause
+
+\vspace{0.5cm}
+Some criticisms...
+\end{frame}
+
+\begin{frame}{Stationary kernels}
+We have seen many examples of \emph{stationary} kernels:
+\begin{align}
+k(\vx, \vx') = k(\vx - \vx')
+\end{align}
+e.g.~the squared exponential.
+
+\vspace{1.0cm}
+
+\begin{itemize}
+\item Same generalisation characteristic is applied through the entire input space.
+\item See \href{https://github.com/markvdw/inference-plots/blob/main/stationary-kernel-failure.ipynb}{\texttt{stationary-kernel-failure.ipynb}} in the \texttt{inference-plots} GitHub repo.
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Local kernels in high dimensions}
+Many kernels depend on some form of the Euclidean distance:
+\begin{align}
+k(\vx, \vx') = \sigma^2_f \exp \left[-\frac{||\vx-\vx'||^2}{2\ell^2}\right]
+\end{align}
+
+This behaves badly in high dimensions (even MNIST, $D = 28^2 = 784$):
+\begin{itemize}
+\item Small differences in each dimension add up to large distances \\ $\rightarrow$ low correlation
+\item Function is allowed to vary independently along each input dimension
+\item Prior with low lengthscale is too flexible, large lengthscale is too inflexible
+\item No middle ground
+\end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}{Conclusions}
+Gaussian processes have limitations for both
+\begin{itemize}
+\item low-dimensional inputs (e.g.~stationarity)
+\item high-dimensional inputs (e.g.~locality)
+\end{itemize}
+
+\vspace{0.3cm}
+
+We need to either make much better priors, or incorporate GPs into more complex models.
+\end{frame}
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}[t,allowframebreaks]
+\frametitle{References}
+\linespread{1.0}
+\tiny
+\bibliographystyle{abbrv}
+\bibliography{../includes/pi-literature.bib}
+\end{frame}
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 
