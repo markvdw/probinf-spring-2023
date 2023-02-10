@@ -1,0 +1,182 @@
+%% Time-stamp: <2019-01-22 14:47:04 (marc)>
+\documentclass[xcolor=x11names,compress, mathserif]{beamer}
+\newcommand\hmmax{0}
+\newcommand\bmmax{0}
+
+\usepackage{../includes/MarkMathCmds}
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{Decision Theory}}
+\newcommand{\footertitle}{Decision Theory}
+\newcommand{\location}{Imperial College London}
+\newcommand{\talkDate}{{February 13, 2023}}
+
+
+
+
+\date{\imperialGray{\talkDate}}
+
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+
+
+
+\begin{frame}{Taking Action}
+What do you want to \emph{use} a posterior for?
+\begin{itemize} \pause
+\item Posterior is a belief over what will happen. \pause
+\item You use beliefs to take action / make decisions. \pause
+\item Uncertainty helps you to balance risk, reward, and new information. \pause
+\end{itemize}
+\begin{center}
+\large We \emph{learn} about the world, \\ so we can \emph{act} in it, \\ to get outcomes that we \emph{desire}.
+\end{center}
+\end{frame}
+
+
+\begin{frame}{Axiomatisation}
+
+
+
+As with uncertain reasoning, we can get maths to tell us how to make rational decisions, if we write down our wishlist of axioms. \pause
+\\
+Paraphrased axioms: \pause
+\begin{enumerate}
+\item Comparing probability distributions A and B over outcomes, you either prefer one over the other, or you have no preference. \pause
+\item If you prefer A over B, and B over C, then you prefer A over C. \pause
+\item Reduction of compound lotteries: If you prefer A over B, then you also prefer a 50\% chance of getting A over a 50\% chance of getting B, with a 50\% chance of getting C. \pause
+\end{enumerate}
+
+
+{\tiny See Ch 16 ``Artificial Intelligence: A Modern Approach'', Russell \cite{russell}}
+\end{frame}
+
+
+\begin{frame}{Von Neumann-Morgenstern Utility Theorem}
+\begin{itemize}
+\item If you behave according to these axioms, then there exists a \emph{utility function} that you maximise. \pause
+\item In other words, if you believe you want to act according to those axioms, you should follow the principle of \emph{Maximum Expected Utility}. \pause
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\begin{myblock}{Principle of Maximum Expected Utility}
+\begin{enumerate}
+\item Define a utility function $U: \mathcal X \times \mathcal A \to \Reals$ \\
+$\mathcal X$: Space of outcomes. $\mathcal A$: Space of actions.
+Quantifies how good an outcome is, if you take a particular action. \pause
+\item Compute expected utility for your actions. \\
+Your beliefs are a distribution over outcomes given action.
+\begin{align}
+u(a) = \Exp{p(x|\mathcal D, a)}{U(x, a)}
+\end{align} \pause
+\item At the time of decision making, choose action which maximises expected utility.
+\begin{align}
+a^* = \argmax_a u(a)
+\end{align}
+\end{enumerate}
+\end{myblock}
+\end{frame}
+
+\begin{frame}
+\begin{myblock}{Exercise: Why do we predict the mean?}
+Your regression model gives you $p(y|X,\vy)$. You need to give a ``best guess'' $y_p$, and your utility will be $U(y, y_p) = -(y-y_p)^2$. \\
+\arrow Find $y_p$ in terms of properties of $p(y|X,\vy)$.
+\end{myblock} \pause
+Solution: We want $\deriv[]{y_p} u(y_p) = \deriv[]{y_p} \Exp{p(y|X,\vy)}{U(y, y_p)} = 0$. \pause
+\begin{align*}
+\deriv[]{y_p}u(y_p) &= \deriv[]{y_p} \int_{-\infty}^{\infty} p(y|X,\vy) U(y, y_p) \calcd y \Pause \\
+&= -\int p(y|X,\vy) \pderiv[]{y_p} (y-y_p)^2 \calcd y  && \text{\tiny Leibniz Integral Rule} \\ \Pause
+&= 2\int p(y|X,\vy) (y-y_p) \calcd y \\ \Pause
+0 &= 2\Exp{p(y|X,\vy)}{y} - 2y_p \\ \Pause
+y_p &= \Exp{p(y|X,\vy)}{y}\,, \qquad \text{i.e. } y_p \text{ should be the \emph{mean}!}
+\end{align*}
+\end{frame}
+
+
+
+\begin{frame}
+\vspace{-0.3cm}
+\begin{myblock}{Exercise: Absolute error loss.}
+Your regression model gives you $p(y|X,\vy)$. You need to give a ``best guess'' $y_p$, and your utility will be $U(y, y_p) = -|y-y_p|$. \\
+\arrow Find $y_p$ in terms of properties of $p(y|X,\vy)$.
+\end{myblock} \pause
+Solution: We want $\deriv[]{y_p} u(y_p) = \deriv[]{y_p} \Exp{p(y|X,\vy)}{U(y, y_p)} = 0$. \pause
+\begin{align*}
+\deriv[]{y_p}u(y_p) &= \deriv[]{y_p} \int_{-\infty}^{\infty} p(y|X,\vy) U(y, y_p) \calcd y \Pause \\
+&= \int p(y|X,\vy) \pderiv[]{y_p} U(y, y_p) \calcd y  && \text{\tiny Leibniz Integral Rule} \\ \Pause
+&= \int p(y|X,\vy) \begin{rcases}\begin{dcases}-1 & \text{if } y > y_p \\ 1 & \text{if } y < y_p  \end{dcases}\end{rcases}\calcd y \Pause \\
+&= -\int_{-\infty}^{y_p} p(y|X,\vy) \calcd y + \int_{y_p}^{\infty} p(y|X,\vy) \calcd y \Pause \\
+0 &= -F(y_p) + (1-F(y_p)) && \text{$F$ is cdf} \Pause \\
+\implies & y_p = F^{-1}(0.5)\,, \qquad \text{i.e. } y_p \text{ should be the \emph{median}!}
+\end{align*}
+\end{frame}
+
+
+\begin{frame}{Applications and Applicability}
+Hugely influential theory:
+\begin{itemize}
+\item Philosophy: Utilitarianism {\tiny effective altruism}
+\item Psychology: Rational behaviour as a model for human behaviour.
+\item Economics: How to optimise investments.
+\item Game theory: Analyse implications of rational choice.
+\item Politics: Voting systems (Arrow's impossibility theorems).
+\end{itemize}
+
+\pause
+Discussions about desirability/realism of axioms:
+\begin{itemize}
+\item Naïve application leads to bad behaviour (St Petersburg Paradox)
+\item Can you express desires as utility functions?
+\item The Law of Perverse Optimization: Whenever a desired behaviour is formulated as a utility, optimising for the utility will give you behaviour you didn't want. (AI Paperclip factory)
+\item Human's don't behave according to the axioms. But perhaps for good reason?
+\item Bounded rationality: It assumes you can compute the optimal decision.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Conclusion}
+\begin{itemize}
+\item Decision theory is easy (in principle): See slide 5. \pause
+\item The implications of decision theory are vast, but sadly we don't have time for this. \pause
+\item Next: Things that are easy in principle, are often very hard in practice.
+\end{itemize}
+\end{frame}
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}[t,allowframebreaks]
+\frametitle{References}
+\linespread{1.0}
+\tiny
+\bibliographystyle{abbrv}
+\bibliography{../includes/pi-literature.bib}
+\end{frame}
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 
