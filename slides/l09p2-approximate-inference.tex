@@ -1,0 +1,775 @@
+%% Time-stamp: <2019-02-01 09:10:32 (marc)>
+\documentclass[xcolor=dvipsnames,compress, mathserif]{beamer}
+
+\newcommand\hmmax{0}
+\newcommand\bmmax{0}
+
+\usepackage{../includes/MarkMathCmds}
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\slidesettitle}{\imperialBlue{Logistic Regression \& \\ Laplace Approximation}}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\footertitle}{Logistic Regression \& Laplace Approximation}
+\newcommand{\location}{Imperial College London}
+\newcommand{\talkDate}{{February 20, 2023}}
+
+
+\date{\imperialGray{\talkDate}}
+
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+
+% \linespread{1.2}
+
+
+
+\begin{frame}{Approximate Inference (Part III)}
+  So far:
+  \begin{itemize}
+  \item How to use Bayes' rule to learn about unseen quantities (I)
+    \begin{itemize}
+    \item Manipulating probability distributions, graphical models
+    \item Gaussian processes
+    \end{itemize}
+  \item How to use uncertainty to make decisions (II)
+  \end{itemize}
+
+  \vspace{0.4cm}
+
+  \pause
+
+  In part III, we will look at:
+  \begin{itemize}
+  \item models that require intractable computations
+  \item properties of intractable computations
+  \item approximations to Bayes' rule
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Today}
+Today we will discuss:
+\begin{itemize}
+\item Non-conjugate model: Logistic Regression
+\item Posterior approximation: Laplace Approximation
+\item Predictive approximation: Monte Carlo
+\end{itemize}
+\end{frame}
+
+
+\section{Logistic Regression}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}{Further Reading}
+  \begin{itemize}
+    \item Pattern Recognition and Machine Learning, Chapter 4 (Bishop,
+      2006)\nocite{Bishop2006}
+    \item Machine Learning: A Probabilistic Perspective, Chapter 8
+      (Murphy, 2012)\nocite{murphy}
+  \end{itemize}  
+\end{frame}
+
+
+
+\begin{frame}{Binary Classification}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.35\hsize]{./figures/logistic_regression/logistic_regression_dataset2D}
+  \end{figure}
+  \begin{itemize}
+  \item Supervised learning setting with inputs $\vec x_n\in\R^D$ and
+    \cemph{binary} targets $y_n\in\{0,1\}$ belonging to
+    \cemph{classes} $\class_1, \class_2$.
+  \item Objective:
+    \begin{itemize}
+    \item Given new test input $\vx_n^*$, predict the label $y_n^*$.
+    \item Find a decision boundary\slash surface that separates the two classes
+    \end{itemize}
+  \end{itemize}
+  
+\end{frame}
+
+
+
+
+
+
+\begin{frame}{Class Posteriors}
+  \begin{itemize}
+  \item Binary classification problem with two classes $\class_1, \class_2$. \pause
+  \item Posterior class probability $p(y=1|\vec x) = p(\class_1|\vec x)$:
+    \begin{align*}
+      p(\class_1|\vec x) &= \frac{p(\vec x|\class_1)p(\class_1)}{p(\vec
+                           x)}\,,\\
+      p(\vec x) &= p(\vec x|\class_1) p(\class_1) + p(\vec x|\class_2)p(\class_2)
+    \end{align*}
+  \end{itemize}
+
+\pause
+
+\arrow Learning from data requires figuring out what $p(\vx\given\class_c)$ is from data.
+\end{frame}
+
+
+\begin{frame}{Generative modelling}
+  \begin{figure}
+    \centering
+    \includegraphics[height=4cm]{./figures/logistic_regression/imagenet}
+  \end{figure}
+  \begin{itemize}
+  \item Inputs can be high-dimensional (e.g.~images)
+  \item $p(\vx\given\class_c)$ can be very complicated
+  \end{itemize}
+  \pause
+  \begin{center}
+    Imagine learning how to create photorealistic images before being able to recognise them!
+  \end{center}
+\end{frame}
+
+
+
+
+
+\begin{frame}{Density ratios}
+  We only need the \emph{ratio of weighted likelihoods}
+  \begin{align*}
+    p(\class_1|\vec x) &= \frac{p(\vec x|\class_1)p(\class_1)}{p(\vec x|\class_1) p(\class_1) + p(\vec x|\class_2)p(\class_2)}\,,\\
+                       &= \frac{1}{1 + \frac{p(\vec x|\class_2)p(\class_2)}{p(\vec x|\class_1)p(\class_1)}}\,,
+                       % a := \log \frac{p(\class_1|\vec x)}{p(\class_2|\vec x)} =
+                       % \log\frac{p(\vec x|\class_1)p(\class_1)}{p(\vec x|\class_2)p(\class_2)}
+  \end{align*}
+
+  \pause
+  
+  Idea: Instead of learning $p(\vx\given\class_c)$, can we just learn $\frac{p(\vec x|\class_2)p(\class_2)}{p(\vec x|\class_1)p(\class_1)}$? \pause
+  \begin{gather}
+    p(\class_1\given \vx, r(\cdot)) = \frac{1}{1 + r(\vx)} \qquad \text{with } r: \Reals^D \to \Reals^+ \,.
+  \end{gather}
+
+  \pause
+
+  Positive functions are a pain... Let's take logs to use $f: \Reals^D\to\Reals$:
+  \begin{gather}
+    p(\class_1\given \vx, f(\cdot)) = \underbrace{\frac{1}{1 + \exp (-f(\vx))}}_{\text{Logistic sigmoid } \sigma(f(\vx))}
+  \end{gather}
+\end{frame}
+
+
+\begin{frame}{Logistic Sigmoid}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.5\hsize]{./figures/logistic_regression/sigmoid}
+  \end{figure}
+  %
+  \begin{align*}
+    f(\vx) &:= \log \frac{p(\class_1|\vec x)}{p(\class_2|\vec x)} =
+        \log\frac{p(\vec x|\class_1)p(\class_1)}{p(\vec
+        x|\class_2)p(\class_2)}\\
+    \sigma(f(\vx))&:=\frac{1}{1+\exp(-f(\vx))} =  p(\class_1|\vec x)
+    % \\
+    % \sigma(-a) &= 1-\sigma(a)\\
+    % a &= \log\big(\frac{\sigma}{1-\sigma}\big) \quad \text{\emph{Logit function}}
+  \end{align*}
+\end{frame}
+
+
+\begin{frame}{What type of function should $f(\cdot)$ be?}
+  \begin{itemize}
+  \item Assume \cemph{Gaussian class conditionals}
+    \begin{align*}
+      p(\vec x |\class_k) = \gaussx{\vec x}{\vec\mu_k}{\mat\Sigma}
+    \end{align*}
+    where the \cemph{covariance matrix $\mat\Sigma$ is shared} across all $K$
+    classes.
+    \pause
+  \item For $K=2$ we get (Bishop, 2006)\nocite{Bishop2006}
+    \begin{align*}
+      &p(\class_1|\vec x) = \sigma(\vec\theta\T \vec x +
+      \theta_0)\,,\\
+      &\vec\theta := \mat\Sigma\inv(\vec\mu_1 -\vec\mu_2)\,,\quad 
+      \theta_0 := \frac{1}{2} \Big(\vec \mu_2\T  \mat\Sigma\inv  \vec \mu_2-\vec\mu_1\T \mat\Sigma\inv \vec\mu_1\Big )  
+       + \log\frac{p(\class_1)}{p(\class_2)}% \frac{1}{2}(\vec\mu_2 -
+      % \vec\mu_1)\T\mat\Sigma\inv(\vec\mu_2 - \vec\mu_1) +
+      %   \log\frac{p(\class_1)}{p(\class_2)}\\
+    \end{align*}
+    % \arrow Linear in $\vec x$\\
+    \pause
+    \hspace{-1mm}\arrow Argument of the sigmoid is linear in $\vec x$\\
+    \pause
+    \arrow Decision boundary is a surface along which the posterior
+    class probabilities $p(\class_k|\vec x)$ are constant\\
+    \arrow \emph{Decision boundary is a linear function of $\vec x$}
+    \pause
+      \item If covariances are not shared: Quadratic decision boundaries
+  \end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Classifying from data samples}
+One approach (generative):
+\begin{enumerate}
+\item Define priors over two Gaussian distributions for $p(\vx\given\class_c)$
+\item Given data, find posteriors over Gaussians
+\item Given our beliefs over $p(\vx\given\class_c)$, apply Bayes' rule to get $p(\class_c\given\vx)$
+\end{enumerate}
+
+\pause 
+
+\vspace{0.4cm}
+
+Alternative approach (discriminative):
+\begin{enumerate}
+\item Define prior on linear functions for $f(\cdot)$
+\item Given data, find posterior over $f(\cdot)$, which directly translates to $p(\class_c\given\vx)$
+\end{enumerate}
+\end{frame}
+
+
+
+
+\begin{frame}{Classifying from data samples}
+One approach:
+\begin{enumerate}
+\item Define priors over two \emph{general} distributions for $p(\vx\given\class_c)$
+\item Given data, find posteriors over \emph{distributions}
+\item Given our beliefs over $p(\vx\given\class_c)$, apply Bayes' rule to get $p(\class_c\given\vx)$
+\end{enumerate}
+
+\vspace{0.4cm}
+
+Alternative approach:
+\begin{enumerate}
+\item Define prior on \emph{general, non-linear} functions for $f(\cdot)$
+\item Given data, find posterior over $f(\cdot)$, which directly translates to $p(\class_c\given\vx)$
+\end{enumerate}
+\end{frame}
+
+
+
+
+
+
+\begin{frame}{Model Specification -- Logistic regression}
+  \begin{itemize}
+  \item \onslide+<2->{Bernoulli} likelihood
+    \vspace{-5mm}
+    \begin{columns}
+      \column{0.55\hsize}
+      \onslide+<2->{
+    \begin{align*}
+      &y\in\{0,1\}\\
+      &p(y|\vec x, \vec\theta) = \Ber(y|\mu(\vec x))\,,\\
+      &\mu(\vec
+        x) = p(y=1|\vec x) = \sigma(\vec\theta\T\vec x)
+    \end{align*}
+    }
+    \column{0.45\hsize}
+    % \vspace{-8mm}
+      \includegraphics[width=\hsize]{./figures/logistic_regression/sigmoid_with_data}
+    \end{columns}
+    \onslide+<3->{
+\item Label $y$ depends on input location $\vec x$, i.e., $\mu(\vec
+  x)$ needs to be a function of $\vec x$
+}
+\onslide+<4->{
+  \item Idea: Linear model $\vec\theta\T\vec x$ (as in linear
+    regression)
+  }
+  \onslide+<5->{
+  \item Ensure $0\leq \mu(\vec x) \leq 1$
+  }
+  \onslide+<6->{
+  \item Squash the linear combination through a function that
+    guarantees this:
+    \vspace{-7mm}
+    \begin{align*}
+      &\mu(\vec x) = \sigma(\vec\theta\T\vec x)\\
+      \implies      &p(y|\vec x, \vec\theta) = \Ber(y|\sigma(\vec\theta\T\vec x))
+    \end{align*}
+    }
+  \end{itemize}
+  
+\end{frame}
+
+
+\begin{frame}{Model fitting}
+Model is very similar to \emph{linear regression}, but with a different \emph{likelihood}.
+\pause
+\begin{itemize}
+\item Can we find the posterior?
+\begin{align}
+p(\vtheta\given X, \vy) &= \frac{\prod_{n=1}^N p(y_n\given \sigma(\vtheta\transpose\vx)) p(\vtheta)}{p(\vy\given X)}
+\end{align} \pause
+\item Can we find the predictive distribution?
+\begin{align}
+p(y^*\given X, \vy, \vx^*) &= \int p(y^*\given \vtheta, \vx^*) p(\vtheta\given X, \vy) \calcd{\vtheta}
+\end{align}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Logistic regression posterior}
+\begin{align}
+p(\vtheta\given X, \vy) &= \frac{\prod_{n=1}^N p(y_n\given \sigma(\vtheta\transpose\vx)) p(\vtheta)}{p(\vy\given X)} \\
+&= \frac{1}{p(\vy\given X)} \prod_{n=1}^N \text{Ber}(y_n|\sigma(\vtheta\transpose\vx)) \NormDist{\vtheta; 0, v\mathbf{I}} \,, \\
+p(\vy\given X) &= \int p(\vy\given X, \vtheta) p(\vtheta) \calcd{\vtheta} \,.
+\end{align}
+\pause
+Problem 1: \pause
+\begin{enumerate}
+\item No closed-form solution for the marginal likelihood \pause
+\item Can only evaluate the posterior up to a constant
+\end{enumerate}
+\end{frame}
+
+
+
+\begin{frame}{Logistic regression predictive distribution}
+  \begin{align}
+    p(y^*\given X, \vy, \vx^*) &= \int p(y^*\given \vtheta, \vx^*) p(\vtheta\given X, \vy) \calcd{\vtheta} \\
+&= \frac{1}{p(\vy\given X)} \int p(y^*\given \vtheta,\vx^*) \,\cdot \nonumber \\ 
+&\qquad\qquad\qquad\prod_{n=1}^N\text{Ber}(y_n|\sigma(\vtheta\transpose\vx)) \NormDist{\vtheta; 0, v\mathbf{I}} \calcd{\vtheta}
+  \end{align}
+\pause
+Problem 2: \pause
+\begin{itemize}
+\item No closed-form solution to integral (similar to marginal likelihood)
+\item Also need to normalise by the marginal likelihood
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Point Estimate}
+  \begin{itemize}
+  \item Estimate model parameters $\vec\theta$ as a point, not a distribution (MLE or MAP)
+    \pause
+  \item Likelihood (training data $\mat X, \vec y$):
+    \begin{align*}
+      p(\vec y|\mat X, \vec\theta) &=
+                                     \prod_{n=1}^N\Ber(y_n|\sigma(\vec\theta\T\vec 
+                                     x_n))=\prod_{n=1}^N(\sigma(\vec\theta\T\vec
+                                     x_n))^{y_n}(1-\sigma(\vec\theta\T\vec x_n))^{1-y_n}\\
+                                   &= \prod_{n=1}^N\mu_n^{y_n}(1-\mu_n)^{1-y_n}\\
+      \mu_n &:= \sigma(\vec\theta\T\vec x_n)
+    \end{align*} \pause \vspace{-0.4cm}
+  \item Minimise \emph{negative log likelihood (cross-entropy):}
+    \pause
+    \begin{align*}
+     NLL &=  -\sum_{n=1}^N y_n\log\mu_n + (1-y_n)\log(1-\mu_n)
+    \end{align*}
+  % \item Alternatively, if $y\in{\pm 1}$ we can write the cross entropy
+  %   as
+  %   \begin{align*}
+  %     \sum_{n=1}^N\log\big(1+\exp(-y_n\vec\theta\T\vec x_n)\big)
+        %       \end{align*}
+  \end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Model Fitting (2)}
+  \begin{itemize}
+    \item Derivative of sigmoid w.r.t. its argument:
+  \begin{align*}
+    &\sigma(z_n) = \frac{1}{1+\exp(-z_n)}\\
+    &\implies \diffF{\sigma(z_n)}{z_n} = \onslide+<2->{\frac{\exp(-z_n)}{(1+\exp(-z_n))^2}=\sigma(z_n)(1-\sigma(z_n))}
+  \end{align*}
+  \onslide+<3->{
+  \item Gradient of the negative log-likelihood:
+  \begin{align*}
+   \diffF{NLL}{\vec\theta} &= -\sum_{n=1}^N\left(y_n
+                             \frac{1}{\mu_n} -
+                             (1-y_n)\frac{1}{1-\mu_n}\right)  \colchar{$\displaystyle\diffF{\mu_n}{\vec\theta}$}{orange}
+                             %\colchar{$\displaystyle\diffF{\mu_n}{\vec\theta}$}{orange}
+    \\
+ \colchar{$\displaystyle\diffF{\mu_n}{\vec\theta}$}{orange}
+                           &=
+                             \onslide+<4->{
+                             \diffF{}{\vec\theta}\sigma(\underbrace{\vec\theta\T\vec
+                             x_n}_{z_n})  =
+                             \diffF{\sigma(z_n)}{z_n}\diffF{z_n}{\vec\theta}
+                             = \sigma(z_n)(1-\sigma(z_n))\vec x_n\T
+                             }
+  \end{align*}
+  }
+\end{itemize} 
+\end{frame}
+%%%%%%%%%%%%% 
+\begin{frame}{Model Fitting (3)}
+  \begin{align*}
+    \diffF{NLL}{\vec\theta} = (\vec\mu - \vec y)\T\mat X\\
+    \mat X = [\vec x_1, \dotsc, \vec x_N]\T
+  \end{align*}
+
+  \begin{itemize}
+  \item \calert{No closed-form solution} \arrow Gradient descent methods
+  \item \cemph{Unique global optimum exists} (NLL) is \emph{convex}.
+  \end{itemize}
+
+  \begin{gather}
+    p(\vtheta\given \mat X, \vy) \approx \delta(\vtheta - \vtheta^*) \\
+    \vtheta^* = \argmax_\theta \log p(\vy\given \mat X, \vtheta) + \log p(\vtheta)
+  \end{gather}
+\end{frame}
+
+
+%%%%%%%%%%%%%
+\begin{frame}{Maximum likelihood solution}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.5\hsize]{./figures/logistic_regression/logistic_regression_mle_2d}
+  \end{figure}
+
+  \begin{align*}
+    p(y|\vec x, \vec\theta)  = \Ber(\sigma(\theta_0 + \theta_1x_1 + \theta_2x_2))
+  \end{align*}
+\end{frame}
+
+%%%%%%%%%%%%%
+\begin{frame}{Comments on Maximum Likelihood}
+
+  \begin{itemize}
+    \item If the classes are linearly separable, the decision boundary
+      is \cemph{not unique} and the predictions will become extreme
+    \item \calert{Overfitting} is a again a problem when we work with features
+      $\vec\phi(\vec x)$ instead of $\vec x$ (or a GP for that matter)
+    \item Maximum a posteriori estimation can address these issues to
+      some degree
+  \end{itemize}
+\end{frame}
+
+
+
+%%%%%%%%%%%%%
+\begin{frame}{MAP Solution}
+
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.45\hsize]{./figures/logistic_regression/logistic_regression_2D_mle_map}
+  \end{figure}
+  \vspace{-5mm}
+  \begin{itemize}
+    \item Log-posterior:
+  \begin{align*}
+    \log p(\vec\theta |\mat X, \vec y) = \log p(\vec y|\mat X,
+    \vec\theta) + \log p(\vec\theta) + \text{ const}
+  \end{align*}
+\item \calert{No closed-form solution} for $\vec\theta_{\text{MAP}}$ \\\arrow
+  \cemph{Numerical maximization of the log-posterior}
+  \end{itemize}
+\end{frame}
+
+
+%%%%%%%%%%%%%%%%%%%%
+\begin{frame}{Predictive Labels}
+
+  \begin{figure}
+    \centering \includegraphics[width
+    =0.5\hsize]{./figures/logistic_regression/logistic_regression_map_prediction}
+  \end{figure}
+
+  \begin{align*}
+    p(y=1|\vec x, \vec\theta_{\text{MAP}}) = \Ber(\sigma(\vec x\T\vec\theta_{\text{MAP}})
+  \end{align*}
+\end{frame}
+
+
+\section{Laplace Approximation}
+
+
+\begin{frame}{Approximate Inference}
+If we can't do the required integrals exactly, \\ ... can we approximate them?
+\begin{itemize}
+\item The true posterior is intractable
+\item Can we find a manageable distribution that is close?
+\end{itemize}
+
+\vspace{0.5cm}
+
+\pause
+\begin{center}Gaussian distributions are manageable, \\
+so can we find a Gaussian approximation?
+\end{center}
+
+\end{frame}
+
+
+\begin{frame}[t]{Laplace Approximation}
+For a distribution $p(\vx) = \frac{1}{Z} \tilde{p}(\vx)$
+\begin{itemize}
+\item Maximising $\tilde p(\vx)$ gives us the mode $\vx^*$
+\item Can we find an approximation to the variance? \pause \\
+\arrow 2nd order Taylor-series approximation
+\end{itemize}
+\pause
+\only<1,2>{
+\vspace{2.6cm}
+}
+\only<3>{
+\begin{gather*}
+\log {p}(\vx) \approx -\log Z + \log\tilde{p}(\vx^*) + \mathbf{J}(\vx^*)(\vx-\vx^*) + \frac{1}{2}(\vx - \vx^*)\transpose\mat H(\vx^*)(\vx-\vx^*) \\
+\mathbf{J}\text{ : \hspace{0.3cm} Jacobian, \hspace{0.5cm} }\mathbf{H}\text{ : Hessian.} \nonumber
+\end{gather*}
+}
+\onslide<4->{
+\begin{gather*}
+\log {p}(\vx) \approx -\log Z + \log\tilde{p}(\vx^*) + \cancelto{0}{\mathbf{J}(\vx^*)(\vx-\vx^*)} + \frac{1}{2}(\vx - \vx^*)\transpose\mat H(\vx^*)(\vx-\vx^*) \\
+\mathbf{J}\text{ : \hspace{0.3cm} Jacobian, \hspace{0.5cm} }\mathbf{H}\text{ : Hessian.} \nonumber
+\end{gather*}
+Since $\mathbf{J}(\vx^*) = 0$.
+}
+
+\onslide<5->{
+Equating coefficients with a Gaussian $q(\vx) = \NormDist{\vx; \vmu, \Sigma}$:
+\begin{gather}
+\vmu = \vx^* \qquad \qquad \Sigma = \mat H(\vx^*)\inv \\
+\log Z \approx \log \tilde{p}(\vx) + \frac{D}{2}\log 2\pi + \frac{1}{2}\log \detbar{\mat H(\vx^*)\inv}
+\end{gather}
+}
+\end{frame}
+
+
+
+\begin{frame}{Laplace Approximation: Marginal Likelihood}
+We can apply the Laplace approximation to approximate a posterior:
+\begin{align*}
+p(\vx|\vy) &= \frac{\color{OliveGreen}p(\vy|\vx)p(\vx)}{{\color{red} \int} {\color{OliveGreen}p(\vy|\vx)p(\vx)} {\color{red} \calcd \vx}} \Pause \\
+&= \frac{1}{\color{red} Z} {\color{OliveGreen} \tilde p(\vx)}
+\end{align*} \pause
+\begin{itemize}
+\item $Z$ is the marginal likelihood!
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[t]{Laplace Approximation: Example}
+
+  \begin{figure}
+    \centering \includegraphics[width=0.4\hsize]{./figures/logistic_regression/laplace_ptilde}
+    \onslide+<2->{
+      \includegraphics[width=0.4\hsize]{./figures/logistic_regression/laplace_q}
+    }
+  \end{figure}
+
+  \begin{itemize}
+  \item Unnormalized distribution:
+    \begin{align*}
+      &\tilde p(x) = \exp(-\tfrac{1}{2}x^2)\sigma(ax + b)\\
+      \onslide+<2->{&q(x) =  \gaussxBig{x}{x^*}{(1 +a^2 \mu_*(1-\mu_*))^{-1}}\,,\quad \mu_*
+      := \sigma(ax_* + b)}
+    \end{align*}
+    % \begin{align*}
+%       \mathrm{Beta}(x|a,b) &~~\propto~~ x^{a-1}(1-x)^{b-1}, \quad a,~b>0\\
+% \onslide+<2->{ &\approx \gaussxBig{x}{x^*}{\left(\frac{a-1}{(x^*)^2} + \frac{b-1}{1-(x^*)^2}\right)\inv}}
+%     \end{align*}
+    
+  \end{itemize}
+  
+\end{frame}
+
+
+
+
+\begin{frame}{Laplace Approximation: Properties}
+  \begin{itemize}
+  \item Only need to know the \cemph{unnormalized distribution} $\tilde p$
+  \item Finding the mode: numerical methods (optimization problem)
+  \item \calert{Captures only local properties} of the distribution
+  \item Multimodal distributions: Approximation will be different
+    depending on which mode we are in (\calert{not unique})
+    \pause
+  \item For large datasets, we would expect the posterior to converge
+    to a Gaussian (Bernstein-von Mises theorem)\\
+    \arrow Laplace approximation should work well in this case
+  \end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Logistic Regression Posterior Approximation}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.45\hsize]{./figures/logistic_regression/logistic_regression_posterior}
+    \hspace{5mm}
+    \includegraphics[width=0.45\hsize]{./figures/logistic_regression/logistic_regression_laplace_posterior} 
+  \end{figure}
+
+  \begin{itemize}
+  \item Left: true parameter posterior
+  \item Right: Laplace approximation
+  \end{itemize}
+  
+  
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}{Posterior Decision Boundary}
+
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.45\hsize]{./figures/logistic_regression/logistic_regression_2D_posterior}  
+  \end{figure}
+
+  \begin{itemize}
+    \item Parameter samples $\vec\theta_i$ drawn from Laplace
+      approximation $q(\vec\theta)$ of posterior $p(\vec\theta|\mat X)$
+    \item Decision boundary drawn for each $\vec\theta_i$
+  \end{itemize}
+  
+\end{frame}
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\section{Monte Carlo}
+
+
+\begin{frame}{Predictions}
+  Assume a Gaussian distribution
+  $q(\vec\theta)=\gauss{\vec\mu}{\mat\Sigma}$ on the parameters (e.g.,
+  Laplace approximation of the posterior). Then:
+  \begin{align}
+    p(y^*\given X, \vy, \vx^*) &= \int p(y^*\given \vtheta, \vx^*) p(\vtheta\given X, \vy) \calcd{\vtheta} \\
+&\approx \int p(y^*\given\vtheta, \vx^*) q(\vtheta) \calcd{\vtheta}
+  \end{align}
+\pause
+\arrow \alert{Integral intractable}
+\pause
+\arrow Use \emph{Monte Carlo} approximation
+\begin{gather}
+\int p(y^*\given\vtheta, \vx^*) q(\vtheta) \calcd{\vtheta} \approx \frac{1}{S}\sum_{s=1}^s p(y^*\given\vtheta^{(s)}, \vx^*) \\
+\vtheta^{(s)} \sim q(\vtheta)
+\end{gather}
+\end{frame}
+
+
+\begin{frame}{Predictions (2)}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.5\hsize]{./figures/logistic_regression/logistic_regression_prediction}
+  \end{figure}
+  \begin{enumerate}
+  \item Samples from  Laplace approximation of the posterior
+  \item Monte-Carlo estimate of label prediction
+  \end{enumerate}
+\end{frame}
+
+
+\begin{frame}{Comparison with MAP Predictions}
+  \begin{figure}
+    \centering
+    \subfloat[MAP]{
+          \includegraphics[width=0.45\hsize]{./figures/logistic_regression/logistic_regression_map_prediction}
+        }
+        \subfloat[Bayesian Logistic Regression]{
+          \includegraphics[width=0.45\hsize]{./figures/logistic_regression/logistic_regression_prediction}
+    }
+  \end{figure}
+  \begin{itemize}
+    \item Predictive labels
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Specifying Monte Carlo Approximations}
+A full specification of a MC procedure (e.g.~in an exam) requires:
+\begin{itemize}
+\item Statement of what is to be computed, e.g.~$\int f(\vx) p(\vx)\calcd \vx$.
+\item What we compute in our approximation, e.g.~$\sum_{s=1}^S f(\vx^{[s]})$
+\item What distribution we sample from, e.g.~$\vx^{[s]} \sim p(\vx)$.
+\item A sentence explaining how we sample from the distribution.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Sampling Procedures}
+You can assume that we can generate samples from \emph{categorical distributions}\pause, \emph{uniform distributions}\pause, and \emph{standard Normal distributions}. \pause
+
+To generate samples, you can:
+\begin{itemize}
+\item Reparameterise a distribution. \pause $x = t(\vepsilon)$ (see MML \cite{mml}) \\
+ \pause E.g.~Gaussian $\NormDist{\vx; \vmu, \mat K}$
+\begin{align}
+\vx = \mathrm{chol}(\mat K)\vepsilon + \vmu && \vepsilon \sim \NormDist{0, I_M}
+\end{align} \pause
+\item Use rejection sampling (later) \pause
+\item MCMC (later)
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Accuracy of MC Estimate}
+Remember from MML:
+\begin{itemize}
+\item As $S\to\infty$, the MC estimate converges to the right value.
+\item Variance determines accuracy for finite $S$ (Chebyshev's inequality).
+\item Want low variance!
+\item Can control this with $S$.
+\item Other techniques in future lectures.
+\end{itemize}
+
+{\tiny Todo: Make nice notebook illustrating MC estiamte}
+\end{frame}
+
+
+
+
+\begin{frame}{Summary}
+  \begin{figure}
+    \centering
+    \includegraphics[height=3cm]{./figures/logistic_regression/sigmoid}
+    \includegraphics[height=3cm]{./figures/logistic_regression/logistic_regression_prediction}
+    \includegraphics[height=3cm]{./figures/logistic_regression/logistic_regression_posterior}
+  \end{figure}
+  
+  \begin{itemize}
+  \item Binary classification problems
+  \item Linear model with non-Gaussian likelihood
+  \item Implicit modeling assumption: Gaussian $p(\vx\given\class_c)$
+  \item Parameter estimation (MLE, MAP) no longer in closed form
+  \item Bayesian logistic regression with Laplace approximation of the
+    posterior
+  \end{itemize}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}[t,allowframebreaks]
+\frametitle{References}
+\linespread{1.0}
+\tiny
+\bibliographystyle{abbrv}
+\bibliography{../includes/pi-literature}
+\end{frame}
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

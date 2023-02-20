@@ -545,6 +545,7 @@ p_n &= \sigma(f(\vx_n)) = \frac{1}{1 + e^{-f(\vx_n)}} \,.
 \item Using a suitable notation, what is the covariance of the Laplace approximation? You can assume that $\vf^* = \argmax_\vf p(f(X)\given \vy)$.
 \item Clearly state the Laplace approximation you end up with.
 \item (Jumping ahead) Derive a Monte Carlo estimate for the predictive distribution.
+\item There are actually two different Monte Carlo estimators that you can come up with. One that samples from two different distributions, and one that only samples from one. Which one gives a better quality approximation?
 \end{itemize}
 \end{question}
 
@@ -1791,6 +1792,10 @@ The Monte Carlo estimate becomes
 \begin{align}
 \hat p^* = \frac{1}{S}\sum_{s=1}^S p(y^*\given f(\vx^*) = f^{(s)}, \vx^*) \,,  && f^{(s)} \overset{iid}{\sim} q(f(\vx^*)) \,.
 \end{align}
+
+
+\subsubsection{Monte Carlo approximation: Alternative}
+Todo, ask about this in lectures. You can also sample from $q(f(X))$, rather than doing he integral in closed-form.
 
 \subsection{\questionref{q:laplace-gpr}}
 Following the same procedure as in the previous question, we find the mean and covariance for the Laplace approximation.
