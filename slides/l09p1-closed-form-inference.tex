@@ -1,0 +1,468 @@
+%% Time-stamp: <2019-01-15 14:22:02 (marc)>
+\documentclass[xcolor=dvipsnames,compress,mathserif]{beamer}
+
+\newcommand\hmmax{0}
+\newcommand\bmmax{0}
+
+\usepackage{../includes/MarkMathCmds}
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{Closed-Form Inference}}
+\newcommand{\footertitle}{Closed-form Inference}
+\newcommand{\location}{Imperial College London}
+\newcommand{\talkDate}{{January 24, 2022}}
+
+
+
+\date{\imperialGray{\talkDate}}
+
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+
+\linespread{1.2} 
+
+
+
+\begin{frame}{Computing Posteriors}
+\begin{itemize}[<+->]
+\item Previous lecture investigated \emph{which} computations we need to perform to find posteriors.
+\item Now, we focus on \emph{actually doing them}.
+\item We focus on inference problems with two variables, one hidden (\emph{latent}), one observed (\emph{data}).
+\begin{equation}
+p(\vx|\vy) = \frac{p(\vy|\vx)p(\vx)}{p(\vy)}
+\end{equation}
+\item As before, the model is specified by the full joint, often in terms of tractable densities, i.e.
+\begin{equation}
+p(\vx, \vy) = {\color{OliveGreen}p(\vy|\vx)p(\vx)}
+\end{equation}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[t]{Terminology}
+  \vspace{-1cm}
+  \begin{columns}
+    \hfill
+    \begin{column}{0.6\hsize}
+      \begin{align}
+        p(\vy, y^*, \vx) = p(y^*|\vx) \prod_{n=1}^N p(y_n|\vx) p(\vx)
+      \end{align}
+    \end{column}
+
+    \begin{column}{0.38\hsize}
+      \centering
+      \tikz{ %
+        \node[latent] (x) {$\vx$} ; %
+        \node[latent, below=0.3cm of x, xshift=-0.7cm] (yn) {$y_n$} ; %
+        \node[latent, below=0.3cm of x, xshift=0.7cm] (yp) {$y^*$} ; %
+        \edge {x} {yn} ; %
+        \edge {x} {yp} ;
+        \plate {} {(yn)} {$n$};
+      }
+    \end{column}
+  \end{columns}
+\begin{align}
+\underbrace{p(\vx | \vy)}_{\text{posterior}} = \frac{\overbrace{\color{OliveGreen}p(\vy|\vx)}^{\text{likelihood}}\overbrace{\color{OliveGreen}p(\vx)}^{\text{prior}}}{\underbrace{p(\vy)}_{\substack{\text{marginal likelihood} \\ \text{ / evidence}}}} = \frac{\color{OliveGreen}p(\vy|\vx)p(\vx)}{\int {\color{OliveGreen}p(\vy|\vx) p(\vx)} \calcd \vx}
+\end{align} \pause
+\begin{itemize}
+\item When solving an inference problem, what is fixed and what is variable in $p(\vx|\vy)$? \pause \arrow observation $\vy$ is fixed, $\vx$ varies. \pause
+\item What variable is the likelihood a function of? \pause \arrow $\vx$ only! \\
+We say ``likelihood of parameters / latent variable $\vx$''.
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[t]{Terminology}
+  \vspace{-1cm}
+  \begin{columns}
+    \hfill
+    \begin{column}{0.6\hsize}
+      \begin{align}
+        p(\vy, y^*, \vx) = p(y^*|\vx) \prod_{n=1}^N p(y_n|\vx) p(\vx)
+      \end{align}
+    \end{column}
+
+    \begin{column}{0.38\hsize}
+      \centering
+      \tikz{ %
+        \node[latent] (x) {$\vx$} ; %
+        \node[latent, below=0.3cm of x, xshift=-0.7cm] (yn) {$y_n$} ; %
+        \node[latent, below=0.3cm of x, xshift=0.7cm] (yp) {$y^*$} ; %
+        \edge {x} {yn} ; %
+        \edge {x} {yp} ;
+        \plate {} {(yn)} {$n$};
+      }
+    \end{column}
+  \end{columns}
+\begin{align}
+\underbrace{p(y^*|\vy)}_{\substack{\text{posterior} \\ \text{predictive}}} \overset{\text{MA}}{=} \int {\color{OliveGreen} p(y^* | \vx)} \underbrace{p(\vx|\vy)}_{\text{posterior}} \calcd \vx = \int {\color{OliveGreen} p(y^* | \vx)} \frac{{\color{OliveGreen} p(\vy | \vx)p(\vx)}}{p(\vy)} \calcd\vx
+\end{align} \pause
+
+\begin{itemize}
+\item If we aren't talking about a fixed observed dataset, we can investigate properties of distributions as a function of $\vy$. If we do so we may refer to $p(\vy) = \int p(\vy|\vx)p(\vx)\calcd\vx$ as the \textit{prior predictive distribution}. \pause
+\item We use different terminology for these settings to indicate whether $\vy$ is observed and fixed, or whether we investigate how the probability changes for different possible outcomes $\vy$.
+\end{itemize}
+\end{frame}
+
+
+
+
+
+
+\begin{frame}[t]{Example: One-Armed Bandit}
+  \begin{columns}
+    \hfill
+    \begin{column}{0.63\linewidth}
+      \begin{itemize}
+        \item Each time you run a ``one-armed bandit'', you get a random return of $Y_n$.
+        \item $Y_n$ is distributed according to density $p(y_n|x)$, with $\Exp{p(y_n|x)}{y_n} = x$.
+        \item The mean return is assigned by the manufacturer by sampling from $p(x)$.
+      \end{itemize}
+      % \begin{align}
+      %   x &\sim \NormDist{0, v} \\
+      %   y_n | x &\overset{\text{iid}}{\sim} \NormDist{x, \sigma^2}
+      % \end{align}
+    \end{column}
+    \begin{column}{0.35\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{./figures/one-armed-bandit}
+    \end{column}
+    \hfill
+  \end{columns} 
+\end{frame}
+
+
+\begin{frame}[t]{Example: One-Armed Bandit}
+You are interested in computing for example:
+\begin{itemize}[<+->]
+\item $p(x|\vy)$ to understand your belief about the average return. In particular
+\begin{align}
+P(X > 0 | \vy) = \int_0^\infty p(x|\vy) \calcd x \,.
+\end{align}
+\item $p(y^*|\vy)$ to understand your belief in your potential return in the next run. In particular
+\begin{gather}
+p(\vy^*|\vy) = \int p(\vy^*|x) p(x | \vy) \calcd x \\
+P(Y^* > 0 |\vy) = \int_0^\infty p(\vy^*|\vy) \calcd y^* \,.
+\end{gather}
+\item In general, we are interested in \emph{summary statistics} of posterior distributions \arrow \emph{integrals}.
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[t]{How difficult is Bayesian inference?}
+\begin{itemize}
+\item Let's think about \textit{actually} computing some of these quantities.\pause
+\item How difficult is this really?\pause
+\end{itemize}
+
+\begin{align*}
+P(X > 0|\vy) = \int_0^\infty p(\vx|\vy) \calcd \vx \,, && p(\vx|\vy) = \frac{\color{OliveGreen} p(\vy|\vx)p(\vx)}{p(\vy)}
+\end{align*}
+
+Let's start with the posterior. \pause
+\begin{itemize}
+\item Computing the numerator of $p(\vx|\vy)$ is easy: multiplication. \pause
+\item Denominator $\comphard{p(\vy)} = \comphard{\int} {\compeasy{p(\vy|\vx)p(\vx)}} \comphard{\calcd\vx}$ seems hard. \\ \emph{Integrals are hard.} \pause
+\item Do we really need $p(\vy)$? It's just a constant... Are relative probabilities not enough? \pause
+\item \arrow No hope of computing $p(X>0|\vy)$ without $p(\vy)$.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[t]{Example: One-Armed Bandit (doing integrals)}
+Take $p(y_n|x) = \NormDist{y_n; x, \sigma^2}$ and $p(x) = \NormDist{x; 0, v}$. \pause
+\begin{align}
+p(x|\vy) &= \frac{\prod_n \NormDist{y_n; x, \sigma^2}\NormDist{x; 0, v}{}}{p(\vy)} \\
+&= \frac{(2\pi\sigma^2)^{-\frac{N}{2}}(2\pi v)^{-\frac{1}{2}}}{p(\vy)}\exp\left[-\frac{1}{2\sigma^2}\sum_n(y_n-x)^2 - \frac{1}{2v}x^2\right] \\
+&= \frac{(2\pi)^{-\frac{N+1}{2}}\sigma^{-N}v^{-\half}}{p(\vy)} \exp\left[-\frac{1}{2\tau}(x - \mu)^2 - \half(\sum_ny_n^2 - \frac{\mu^2}{\tau})\right] \\
+&= c \exp\left[-\frac{1}{2\tau}(x - \mu)^2\right]
+\end{align} \pause
+Equate coefficients to obtain
+\begin{align}
+\tau = \frac{v\sigma^2}{vN+\sigma^2} \,, && \mu = \frac{v}{vN + \sigma^2}\sum_n y_n \,.
+\end{align}
+\end{frame}
+
+\begin{frame}[t]{Example: One-Armed Bandit (doing integrals)}
+\vspace{-0.5cm}
+From previous slide we know:
+\begin{gather}
+p(x|\vy) = c \exp\left[-\frac{1}{2\tau}(x - \mu)^2\right] \,, \\
+\tau = \frac{v\sigma^2}{vN+\sigma^2} \,, \qquad \mu = \frac{v}{vN + \sigma^2}\sum_n y_n \,.
+\end{gather}
+
+How to find $c$? Two options: \pause
+\begin{enumerate}
+\item We know that $\int p(x|\vy) \calcd x = 1$. \pause
+ Do the integral using $\int\! e^{-x^2}\!\calcd x\!=\!\sqrt{\pi}$. \pause
+\begin{align}
+\int c \exp\left[-\frac{1}{2\tau}(x - \mu)^2\right] \calcd x = c \cdot \sqrt{2\pi\tau} = 1 \,\,\implies\,\, c = \frac{1}{\sqrt{2\pi\tau}}
+\end{align} \pause
+\vspace{-0.2cm}
+\item Let someone else do the integral, \pause by using knowledge that
+\begin{align}
+\NormDist{x; \mu, \tau} = \frac{1}{\sqrt{2\pi\tau}}\exp\left[-\frac{1}{2\tau}(x - \mu)^2\right] \,.
+\end{align}
+\end{enumerate}
+\end{frame}
+
+
+\begin{frame}[t]{Why could we compute the posterior?}
+\begin{center}
+One reason: \\
+{\Large \pause We could integrate the unnormalised posterior.}
+\end{center}
+\begin{align}
+p(x|\vy) \,&\propto\, \compeasy{p(\vy|\vx)p(\vx)} \\
+\compeasy{Z} &=  \compeasy{\int p(\vy|\vx)p(\vx)\calcd\vx} && \text{in this case} \\
+p(x|\vy) &= \compeasy{\frac{1}{Z}p(\vy|\vx)p(\vx)} && \text{in this case}
+\end{align} \pause
+\begin{itemize}
+\item This was the case because $\compeasy{p(\vy|\vx)p(\vx)}$ as a function of $\vx$ implies a Gaussian distribution.
+\item We know how to do the integral to normalise a Gaussian.
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[t]{Intractable Inference}
+Example where things don't work out so nicely. Take $y_n \in \{0, 1\}$.
+\begin{align}
+p(x) &= \NormDist{x; 0, v} \\
+\ell(x) &= \frac{1}{1 + e^{-x}} && \text{Logistic function} \\
+p(y_n|x) &= \ell(x)^{y_n}\cdot (1-\ell(x))^{1-y_n} \,.
+\end{align}
+I.e.~$Y_n$ is Bernoulli distributed with probability $\ell(x)$. \pause
+\begin{align}
+p(x|\vy) &= \frac{1}{Z} \frac{e^{-N_1x-\frac{1}{2v}x^2}}{(1 + e^{-x})^{N}} \\
+Z &= \comphard{\int} \frac{e^{-N_1x-\frac{1}{2v}x^2}}{(1 + e^{-x})^{N}} \comphard{\calcd x}
+\end{align}
+\end{frame}
+
+\begin{frame}[t]{Intractable Inference}
+\begin{align}
+Z &= \comphard{\int} \frac{e^{-N_1x-\frac{1}{2v}x^2}}{(1 + e^{-x})^{N}} \comphard{\calcd x}
+\end{align}
+\begin{itemize}
+\item No known ``\emph{closed-form}'' solution to this integral.
+\item Closed-form: Combination of finite number of terms of standard functions (exp, sin, log, sqrt...). Sometimes includes special functions (e.g.~Gamma, Bessel...)
+\item If no closed-form solution is known, a quantity is also said to be \emph{intractable}.
+\item Inference is intractable if it requires computing intractable quantities.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Tractable Inference}
+\begin{itemize}
+\item In general it is hard to tell when inference is tractable.\pause
+\item There is a set of distributions for which you can tell that inference is tractable. \pause
+\end{itemize}
+    \begin{definition} 
+      A prior and likelihood are \emph{conjugate} if their resulting posterior is of the same family as the prior.
+    \end{definition} \pause
+
+\begin{center}
+\Large If your prior was tractable, \pause \\ then your posterior will be as well!
+\end{center}
+\end{frame}
+
+
+\begin{frame}[t]{Example: Gaussian-Gaussian conjugacy}
+The Gaussian example we saw earlier was an example of conjugacy.
+\begin{itemize}
+\item Likelihood formed from Gaussian with unknown mean:
+\begin{align}
+L(x) = p(\vy|x) = \prod_n \NormDist{y_n; x, \sigma^2}
+\end{align} \pause
+\vspace{-0.4cm}
+\item Prior from the Gaussian family of distributions:
+\begin{align}
+p(x) = \NormDist{x; 0, v}
+\end{align} \pause
+\vspace{-0.4cm}
+\item Posterior is also Gaussian!
+\begin{align}
+p(x|\vy) &\,\propto\, L(x)p(x) \\
+p(x|\vy) &= \NormDist{x; \frac{v\sum_n y_n}{vN + \sigma^2}, \frac{v\sigma^2}{vN + \sigma^2}}
+\end{align}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[t]{Exponential Family}
+This is no coincidence. The Gaussian distributions are part of the \emph{exponential family}:
+\begin{align}
+p(x|\eta) = h(x) \exp\left(\eta\transpose t(x) - A(\eta)\right) && \eta,t \in \Reals^D
+\end{align} \pause
+
+Different $t(x)$ (and therefore $A(\eta)$), give different distributions. \pause
+
+\begin{block}{Example: Gaussian}
+\begin{align}
+p(x) = (2\pi\sigma^2)^{-\half}\exp\left(-\frac{1}{2\sigma^2}(x-\mu)^2\right)
+\end{align}
+\vspace{-0.7cm}
+\begin{align}
+t(x) = [x\quad x^2]\transpose \,, && \eta = [\mu/\sigma^2\quad -\frac{1}{2\sigma^2}]\transpose \,, \\
+A(\eta) = -\frac{\eta_1^2}{4\eta_2^2} - \half\log(-2\eta_2) \,, && h(x) = (2\pi)^{-\half} \,.
+\end{align}
+\end{block}
+\end{frame}
+
+\begin{frame}[t]{Exponential Family}
+This is no coincidence. The Gaussian distributions are part of the \emph{exponential family}:
+\begin{align}
+p(x|\eta) = h(x) \exp\left(\eta\transpose t(x) - A(\eta)\right) && \eta,t \in \Reals^D
+\end{align} \pause
+
+Different $t(x)$ (and therefore $A(\eta)$), give different distributions. \pause
+
+\begin{block}{Example: Bernoulli}
+\vspace{-0.3cm}
+\begin{align}
+p(x) &= \theta^x\cdot(1-\theta)^{1-x} && x \in \{0, 1\} \\
+&= \exp(x(\log \theta - \log 1\!-\!\theta) + \log 1\!-\!\theta)
+\end{align}
+\vspace{-0.9cm}
+\begin{align}
+t(x) = x \,, && \eta = \log\frac{p}{1-p} \,, \\
+A(\eta) = \log 1-p \,, && h(x) = 1 \,.
+\end{align}
+\end{block}
+\end{frame}
+
+
+
+
+\begin{frame}{Conjugate Prior for Exponential Family}
+Exponential families have conjugate priors!
+
+For the likelihood:
+\begin{align}
+\ell(\eta) = p(x|\eta) = h(x) \exp\left(\eta\transpose t(x) - A(\eta)\right) && \eta,t \in \Reals^D
+\end{align} \pause
+
+We have the conjugate prior:
+\begin{align}
+p(\eta|\tau, n_0) = H(\tau, n_0)\exp(\tau\transpose\eta - n_0 A(\eta))
+\end{align} \pause
+\end{frame}
+
+
+\begin{frame}{Exam skills (NOT THIS YEAR)}
+Previous years:
+\begin{itemize}
+\item Convert distributions that are exponential families into their \emph{natural form} (i.e.~parameterised by $\eta$).
+\item Recognise when a likelihood and prior are conjugate, and when they are not.
+\item Find conjugate prior to a likelihood in exponential family.
+\end{itemize}
+
+\vspace{0.4cm}
+
+See examples sheet for practice.
+
+\end{frame}
+
+
+\begin{frame}{Exam skills (THIS YEAR)}
+You must be able to:
+\begin{itemize}
+\item do closed-form inference when distributions are Gaussian,
+\item do closed-form inference for discrete distributions,
+\item recognise when integrals w.r.t.~Gaussians are possible,
+\item do integrals if an identity is given.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Summary}
+\begin{myblock}{Inference}
+The procedure of drawing conclusions from observations. \\
+In Bayesian statistics: Computing some conditional distribution (posterior).
+\end{myblock} \pause
+
+\begin{myblock}{Closed-form Expressions}
+A mathematical expression consisting of a finite number of standard operations ($\mathrm{pow}, \exp, \log$, trig, etc). \\
+See \texttt{https://en.wikipedia.org/wiki/Closed-form\_expression}.
+\end{myblock} \pause
+
+\begin{myblock}{Closed-form Inference}
+An inference problem where all relevant quantities (e.g.~posteriors) can be computed in closed-form.
+\end{myblock}
+\end{frame}
+
+\begin{frame}{Summary}
+\begin{itemize}[<+->]
+\item Integrals appear when finding the posterior \\ (normalising constant / marginal likelihood)
+\item Integrals appear when making predictions
+\item Integrals can only be done in special cases
+\item Conjugate models is a (big) family of these special cases, which helps you recognise when you can do the closed-form inference \\ (but this isn't examined this year)
+\end{itemize}
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+
+\begin{frame}{Reading}
+Recommended reading:
+\begin{itemize}
+\item \S 6.6 of Mathematics for Machine Learning \citep{mml}.
+\end{itemize}
+
+Further reading:
+\begin{itemize}
+\item \S9.2 of ML: a Probabilistic Perspective \citep{murphy}.
+\end{itemize}
+\end{frame}
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}[t,allowframebreaks]
+\frametitle{References}
+\linespread{1.0}
+\tiny
+\bibliographystyle{abbrv}
+\bibliography{../includes/pi-literature.bib}
+\end{frame}
+
+
+
+
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 
