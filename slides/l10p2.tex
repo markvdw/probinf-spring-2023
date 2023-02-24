@@ -1,0 +1,749 @@
+%% Time-stamp: <2019-02-01 09:10:32 (marc)>
+\documentclass[xcolor=x11names,compress,mathserif]{beamer}
+
+\newcommand\hmmax{0}
+\newcommand\bmmax{0}
+
+\usepackage{../includes/MarkMathCmds}
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{Markov Chain Monte Carlo}}
+\newcommand{\footertitle}{Markov Chain Monte Carlo}
+\newcommand{\location}{Imperial College London}
+\newcommand{\talkDate}{{February 24, 2023}}
+
+
+\date{\imperialGray{\talkDate}}
+
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+
+\linespread{1.2}
+
+
+
+
+
+
+
+
+
+% \begin{frame}
+%   % \frametitle{Objective}
+
+%   \begin{myblock}{Objective}
+%     Generate samples from an unknown target distribution.\\[2mm]
+%     Target distribution: the distribution we are interested in (e.g., posterior)
+%   \end{myblock}
+% \end{frame}
+
+
+\begin{frame}{Goal}
+We want to create Monte Carlo estimators of integrals:
+\begin{align*}
+I &= \int f(\vx) p(\vx) \calcd{\vx} \approx \frac{1}{S}\sum_{s=1}^S f(\vx^{[s]}) = \hat I & \text{with } \vx^{[s]} \sim p(\vx)
+\end{align*}
+\pause
+
+Last lecture we saw
+\begin{itemize}
+\item rejection sampling \onslide+<3->{--- High rejection rate in high dim}
+\item importance sampling \onslide+<3->{--- High variance in high dim}
+\end{itemize}
+\pause
+\pause
+
+\vspace{0.8cm}
+
+Today: Markov Chain methods for sampling from $p(\vx)$
+\end{frame}
+
+
+
+
+\begin{frame}
+  \frametitle{Markov Chains} 
+
+  Instead of generating independent samples $\vec x\idx{1},
+  \vec x\idx{2}, \dotsc$, use a \cemph{proposal
+  density $q$ that depends on the previous sample (state) $\vec x\idx{t}$}
+\pause  
+\begin{itemize}
+\item This generates a \emph{sequence} with a joint $q(\vx\idx 1, \vx\idx 2, \dots, \vx\idx T)$ \pause
+\item \emph{Key idea}: For the marginal at $T$ we want $q_{X\idx T}(\vx) \approx p(\vx)$ \pause
+\item Simplify joint with \emph{Markov property}: $q(\vec x\idx{t+1}|\vec x\idx{1},\dotsc, \vec x\idx{t}) =
+  q(\vec x\idx{t+1}|\vec x\idx{t}) = T(\vec x\idx{t+1}|\vec x\idx{t})$ only depends on the previous
+  setting/state of the chain \pause
+\item $T$ is called a \emph{transition operator}
+  \pause
+\item Example: $T(\vec x\idx{t+1}|\vec x\idx{t}) = \gaussx{\vec
+    x\idx{t+1}}{\vec x\idx{t}}{\sigma^2\mat I}$
+\pause
+\item Samples $\vec x\idx{1},\dotsc, \vec x\idx{t}$ form a \emph{Markov chain}\pause
+\item Samples $\vec x\idx{1},\dotsc, \vec x\idx{t}$ are \calert{no longer independent} %, but \cemph{unbiased}\\
+%  \arrow We can still average them
+\end{itemize}
+
+
+\end{frame}
+
+\begin{frame}
+
+\frametitle{Behaviour of Markov Chains}
+
+\begin{figure}
+\centering
+\includegraphics[height = 3cm]{./figures/mcmc/random_walk}
+\includegraphics[height = 3cm]{./figures/mcmc/absorbing_state}
+\includegraphics[height = 3cm]{./figures/mcmc/cycle}
+\includegraphics[height = 3cm]{./figures/mcmc/moving_to_eq_distribution}
+\end{figure}
+
+Four different behaviors of Markov chains:
+\begin{itemize}[<+->]
+\item Diverge (e.g., random walk diffusion where $\vec
+  x\idx{t+1}\sim\gauss{\vec x\idx{t}}{\mat I}$)
+\item Converge to an absorbing state
+\item Converge to a (deterministic) limit cycle
+\item Converge to an equilibrium distribution $p^*$: Markov chain
+  remains in a region, bouncing around in a random way
+\end{itemize}
+
+\end{frame}
+
+
+
+\begin{frame}{Example: Sampling from a uniform distribution}
+\begin{figure}
+\centering
+\includegraphics[height = 2.4cm]{./figures/mcmc/uniform-transition-prob}
+\includegraphics[height = 2.4cm]{./figures/mcmc/uniform-transition-img}
+\end{figure}
+Procedure:
+\begin{enumerate}
+\item Initialise state at $t=1$ by sampling from initial distribution $p(\vx\idx 1)$. Can be a delta function.
+\item Repeat: Sample from $T(\vx\idx{t}\given \vx\idx{t-1})$
+\end{enumerate}
+\end{frame}
+
+
+
+\begin{frame}{What distribution are we sampling from?}
+We should ask:
+\begin{center}
+\Large At time $t$, what distribution are we sampling from?
+\end{center}
+\pause
+Apply sum rule:
+\begin{align*}
+q(x\idx t) &= \sum_{x=1}^5 T(x\idx t | x\idx{t-1} = x) q(x\idx{t-1} = x) \\
+&= \mathbf{T}\vq\idx{t-1}
+\end{align*}
+\pause
+Why does it converge?
+\begin{align*}
+\vq\idx t = \mathbf{T}\vq\idx{t-1} = \mathbf{Q}\mathbf{\Lambda}\mathbf{Q}\inv \vq\idx{t-1}
+\end{align*}
+For this simple-to-analyse case:
+\begin{itemize}
+\item Only one eigenvector with $\lambda = 1$, which is $\vp$.
+\item All other eigenvectors have $\lambda < 1$.
+\end{itemize}
+\end{frame}
+
+
+%%%%%%%%%%%%%%%%%%%
+% \begin{frame}
+
+% \frametitle{Converging to an Equilibrium Distribution}
+
+% \begin{itemize}[<+->]
+% \item Remember objective: Explore/sample parameters that may have generated
+% our data (generate samples from posterior)
+% \\
+% \arrow Bouncing around in an equilibrium distribution is a good thing
+% \item Design the Markov chain such that the equilibrium distribution
+%   is the desired distribution $p(\vec x)$
+% \item Generate a Markov chain that converges to that equilibrium
+%   distribution (independent of start state)
+% \item Although successive samples are dependent we can effectively
+%   generate independent samples by running the Markov chain long
+%   enough: Discard most of the samples, retain only every $M$th sample
+% \end{itemize}
+
+% \end{frame}
+
+
+
+\begin{frame}{Using Markov Chain samples: Independent chains}
+If after $T$ steps, we converge to $q_{\vx\idx T}(\vx) \approx p(\vx)$.
+\begin{align}
+\hat{I} &\approx \frac{1}{S}\sum_{s=1}^S g(\vx_s) \,, & \vx_s \sim q(\vx\idx T) \,.
+\end{align}
+Where $q(\vx_T)$ is generated from the $T$th step of a Markov Chain. Time for a sample to be ``good enough'' is called \emph{burn-in time}.
+
+\pause
+\vspace{0.3cm}
+\begin{itemize}
+\item We run $S$ separate Markov Chains for $T$ steps. Samples are \emph{independent}, because the Markov Chains are independent.
+\item Samples are approximate. May contain bias from $T$ not being large enough for the distribution to converge.
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Using Markov Chain samples: Single long chain}
+Alternative: After $T$ steps, average all samples
+\begin{align}
+\hat{I} &\approx \frac{1}{S}\sum_{s=1}^S g(\vx\idx{T+s}) \,, & \vx^{(T+1)}, \dots, \vx^{(T+S)} \sim q(\vx_{T+1}, \dots, \vx_{T+S}) \,.
+\end{align}
+\vspace{-0.7cm}
+\begin{align}
+q(\vx\idx{T+1}, \dots, \vx\idx{T+S}) = q(\vx\idx T) \prod_{s=1}^{S-1} q(\vx\idx{T+s}\given \vx\idx{T+s-1})
+\end{align}
+\pause
+\begin{itemize}
+\item Remember, we choose $T$ such that $q_{\vx\idx T}(\vx) \approx p(\vx)$.
+\item Only requires $T$ steps for burn-in time \emph{once}.
+\item Then can get a single sample per step. However, samples are \emph{correlated}.
+\end{itemize}
+Usually more efficient to generate \emph{many correlated samples}, than few independent ones.
+\end{frame}
+
+
+
+
+
+
+\begin{frame}{Markov Chain Monte Carlo}
+Markov Chain Monte Carlo estimates an integral using correlated samples from a Markov Chain. If the chain has converged, the estimate is \emph{unbiased}.
+\vspace{-0.5cm}
+\begin{align}
+\hat{I} &\approx \frac{1}{S}\sum_{s=1}^S g(\vx^{(s)})
+\end{align}
+with $\{\vx^{(1)}, \vx^{(2)}, \dots\}$ from Markov Chain.
+\begin{align}
+\Exp{q\left(\vx^{(1)}, \vx^{(2)}, \dots\right)}{\hat I} = \frac{1}{S}\sum_{s=1}^S\Exp{q(\vx^{(s)})}{g(\vx^{(s)})} = I
+\end{align} \pause
+Variance decreases depending on \emph{covariance}
+\begin{align*}
+\Var{q(\{\vx^{(s)}\})}{\hat{I}} &= \frac{1}{S^2} \left[ \sum_{s=1}^S \Var{q(\vx\idx s)}{g(\vx\idx s)} + \sum_{t}\sum_{t'\neq t}\mathbb{C}_{q(\vx^{(t)}, \vx^{(t'))}}\left[g(\vx^{(t)}), g(\vx^{(t')})\right] \right] \nonumber \\
+&= \frac{1}{S} \Var{p(\vx)}{g(\vx)} + \left[ \sum_{t}\sum_{t'\neq t}\mathbb{C}_{q(\vx^{(t)}, \vx^{(t'))}}\left[g(\vx^{(t)}), g(\vx^{(t')})\right] \right]
+\end{align*}
+\end{frame}
+
+
+\begin{frame}{Correlation vs steps trade-off}
+Independent chains:
+\begin{itemize}
+\item Require $T\cdot S$ transitions for $S$ samples
+\item Generate independent samples, so don't need too many $S$.
+\end{itemize}
+
+\vspace{0.5cm}
+
+Single chain:
+\begin{itemize}
+\item Require $T + S$ transitions for $S$ samples
+\item Generates dependent samples so may need more $S$.
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Converging to an Equilibrium Distribution}
+To get a Markov Chain that converges to a desired distribution $p(\vx)$, we need two properties:
+\begin{enumerate}
+\item Transition leaves $p(\vx)$ \emph{invariant}:
+\begin{align}
+p(\vx) = \int T(\vx|\vx') p(\vx') \calcd{\vx'}
+\end{align}
+i.e.~if we start with a sample from $p(\vx)$, the marginal distribution after the transition is unchanged. \pause
+\item Transition is \emph{ergodic}. Definition is technical, but it is needed to ensure that $\pi(\vx^{(t)}) \to p(\vx)$ as $t\to\infty$.
+
+Ergodic chains only have one equilibrium distribution.
+\end{enumerate}
+\end{frame}
+
+
+
+
+% \begin{frame}
+% \frametitle{Conditions for Converging to an Equilibrium Distribution}
+% % If we start somewhere, chains fall into a region.  The
+% % distribution where they end up will end up in an equilibrium
+% % distribution, which is the distribution we are interested in.
+
+% 2 Markov chain conditions:
+% \begin{itemize}
+% \item \emph{Invariance/Stationarity:} If you run the chain for a long
+%   time and you are in the equilibrium distribution, you stay in
+%   equilibrium if you take another step. \\
+%   \arrow \cemph{Self-consistency property}
+% \pause
+% \item \emph{Ergodicity:} Any state can be reached from any state.\\
+%   \arrow Equilibrium distribution is the same no matter where we
+%   start
+% %, i.e., $p(\vec
+% %  x^\idx{m})\stackrel{m\to\infty}{\longrightarrow}p^*(\vec x)$.
+% %\\
+% %  \arrow  Be able to end up anywhere in the state space
+% \end{itemize}
+% \pause
+% \begin{myblock}{Property}
+% Ergodic Markov chains only have one equilibrium
+% distribution
+% \end{myblock}
+% \pause
+
+% \arrow Use ergodic and stationary Markov chains to generate samples
+% from the equilibrium distribution
+
+
+% % Goal: ergodicity + self-consistency.
+
+% % Metropolis-Hastings does this.
+
+% \end{frame}
+
+
+%%%%%%%%%%%%%%%%%
+\begin{frame}
+\frametitle{Invariance and Detailed Balance}
+
+% \begin{myblock}{Objective}
+%   Use Markov chains to generate samples from the equilibrium
+%   distribution 
+% \end{myblock}
+
+\begin{itemize}
+% \item Ensure that the Markov chain is (a) ergodic, (b) leaves the
+%   desired distribution invariant.
+\item \cemph{Invariance:} Each step leaves the distribution $p$ invariant
+  (we stay in $p$):
+\begin{align*}
+p(\vec x^\prime) = \sum_{\vec x} T(\vec x^\prime|\vec x)p(\vec x)
+  \qquad\qquad p(\vec x^\prime) = \int T(\vec x^\prime|\vec x)
+  p(\vec x) d\vec x
+\end{align*}
+\pause
+Once we sample from $p$, the transition operator will not change
+this, i.e., we do not fall back to some funny distribution $\pi\neq p$
+\pause
+\item \cemph{Sufficient condition} for $p$ being invariant:\\
+  \emph{Detailed balance:}
+\begin{align*}
+p(\vec x)T(\vec x^\prime|\vec x) = p(\vec x^\prime)T(\vec x|\vec x^\prime)
+\end{align*}
+% \arrow Also ensures that the Markov chain is \cemph{reversible}
+\end{itemize}
+
+\end{frame}
+
+
+
+
+\begin{frame}{Why is invariance not enough?}
+\begin{itemize}
+\item Invariance only says something about the transitions once we have \emph{reached} the stationary distribution.
+\item Invariance doesn't say anything about how the chain converges.
+\end{itemize}
+
+\pause
+
+Trivial solutions leave $p(\vx)$ invariant, e.g.~$T(\vx_{t+1}\given \vx_t) = \delta(\vx_{t+1} - \vx_t)$:
+\begin{align}
+\int T(\vx_{t+1} = \vx\given \vx_t = \vx') p(\vx') \calcd{\vx'} = p(\vx)
+\end{align}
+
+\pause
+
+Ergodicity has a rather technical definition, but thankfully it is easy to guarantee!
+\end{frame}
+
+
+
+
+
+
+\begin{frame}{Ergodicity and communication}
+A Markov Chain is ergodic if there is some probability for any state to reach any state in bounded steps. If this is true, all states are said to \emph{communicate}.
+
+\vspace{0.3cm}
+
+
+When designing Markov Chains, the easiest way to guarantee this is to have transitions that satisfy:
+\begin{align}
+T(\vx\idx{t+1}\given \vx\idx t) \geq 0 && \forall \vx\idx{t+1}, \vx\idx{t}
+\end{align}
+
+Then, all states will communicate in 1 step.
+\end{frame}
+
+
+
+
+
+
+
+
+
+\begin{frame}
+\frametitle{Metropolis-Hastings}
+
+
+\begin{itemize}
+\item Assume that $\tilde p=Zp$ can be evaluated easily 
+\item \cemph{Proposal density} $\hat T(\vec x^\prime|\vec x\idx{t})$ depends on
+  last sample $\vec x\idx{t}$. \\
+  Example: Gaussian with mean $\vec x\idx{t}$: $\hat T(\vec x^\prime|\vec
+  x\idx{t}) = \gauss{\vec x\idx{t}}{\mat\Sigma}$
+\end{itemize}
+\pause
+\begin{myblock}{Metropolis-Hastings Algorithm}
+\begin{enumerate}
+\item Generate proposal $\vec x^\prime \sim \hat T(\vec x^\prime|\vec x\idx{t})$
+\item If \vspace{-5mm}
+\begin{align*}
+\frac{\hat T(\vec x\idx{t}|\vec x^\prime)\blue{\tilde p(\vec
+  x^\prime)}}{\hat T(\vec x^\prime|\vec x\idx{t})\blue{\tilde p(\vec x\idx{t})}}
+\geq u\,,\qquad u\sim U[0,1]
+\end{align*}
+accept the sample $\vec x\idx{t+1} = \vec x^\prime$. Otherwise set
+$\vec x^{(t+1)} = \vec x\idx{t}$.
+\end{enumerate}
+\end{myblock}
+\pause
+\vspace{-1mm}
+\begin{itemize}
+  \item $q(\vec x\idx{t}) \stackrel{t\to\infty}{\longrightarrow}
+    p(\vec x)$ \arrow Converge to equilibrium distribution
+\item If proposal distribution is symmetric: \cemph{Metropolis
+    Algorithm} (Metropolis et al., 1953); Otherwise
+  \cemph{Metropolis-Hastings Algorithm} (Hastings, 1970)\nocite{Metropolis1953,Hastings1970}
+\end{itemize}
+
+\end{frame}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}
+\frametitle{Example}
+\begin{figure}
+\includegraphics[height = 7cm]{./figures/mcmc/moving_to_eq_distribution}
+\end{figure}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}
+\frametitle{Step-Size Demo}
+
+
+\begin{itemize}
+\item Explore $p(x)=\gaussx{x}{0}{1}$ for different step sizes $\sigma$. 
+\item We can only evaluate $\log \tilde p(x) = -x^2/2$
+\item Proposal distribution $q$: Gaussian
+  $\gaussx{x\idx{t+1}}{x\idx{t}}{\sigma^2}$ centered at the current
+  state for various step sizes $\sigma$
+\item Expect to explore the space between $-2,2$ with high probability 
+\end{itemize}
+
+\end{frame}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+\begin{frame}
+\frametitle{Step-Size Demo: Discussion}
+\begin{itemize}[<+->]
+\item Acceptance rate depends on the step size of the proposal distribution \\
+  \arrow Exploration parameter
+\item If we do not reject enough, the method does not work. 
+\item In rejection sampling we do not like rejections, but in MH
+  rejections tell you where the target distribution is.
+\item Theoretical results: in 1D 44\%, in higher dimensions about 25\%
+  acceptance rate for good mixing properties
+\item Tune the step size
+\end{itemize}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}
+\frametitle{Properties}
+\begin{itemize}
+\item Samples are correlated \\
+\pause
+\item If $\hat T>0$ everywhere, we will end up in the \cemph{equilibrium
+    distribution:}
+  $\pi(\vec x\idx{t}) \stackrel{t\to\infty}{\longrightarrow} p^*(\vec
+  x)$ \pause
+\item Explore the state space by random walk\\
+\arrow May take many steps, if the steps are short compared to the distribution
+\item No further catastrophic problems in high dimensions
+%\item Convergence difficult to assess
+\end{itemize}
+
+\end{frame}
+
+
+
+
+
+
+% \begin{frame}
+% \frametitle{Gibbs Sampling (Geman \& Geman, 1984)\nocite{Geman1984}}
+% \begin{itemize} 
+% \item Assumption: $p(\vec x) = p(x_1,\dotsc,x_n)$ is too complicated
+%   to draw samples from directly, but \cemph{its conditionals
+%     $p(x_i|\vec x_{\backslash i})$ are tractable to work with}
+% \item Any distribution ``with a name'' (Gaussian, Laplace, Bernoulli,
+%   Gamma, Wishart, ...) is easy to sample from
+%   (standard libraries)
+% \pause
+% \item Trick: Update that always accepts
+% \item No need to tune step-length
+% \end{itemize}
+% \end{frame}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \begin{frame}
+%   \frametitle{Algorithm} 
+
+% \begin{columns}
+% \column{0.55\hsize}
+
+% Assuming $n$ parameters $x_1,\dotsc, x_n$,
+%   Gibbs sampling samples individual variables conditioned on all
+%   others:
+
+% \begin{enumerate}
+% \item $x_1^\idx{t+1}\sim p(x_1|x_2^\idx{t},\dotsc, x_n^\idx{t})$
+% \item $x_2^\idx{t+1}\sim p(x_2|x_1^\idx{t+1}, x_3^\idx{t}, \dotsc,
+%   x_n^\idx{t})$
+% \item $\vdots$
+% \item $x_n^\idx{t+1}\sim p(x_n|x_1^\idx{t+1},\dotsc, x_{n-1}^\idx{t+1})$
+% \end{enumerate}
+% \column{0.4\hsize}
+% \begin{figure}
+% \centering
+% \includegraphics[width = \hsize]{./figures/mcmc/Figure11_11}\\
+% \tiny{From PRML (Bishop, 2006)}
+% \end{figure}
+% \end{columns}
+% \end{frame}
+
+
+
+
+
+
+
+
+% % \begin{frame}
+% % \frametitle{}
+% % %% Composition of transition operators T_A is a valid transition operator
+% % %% Gibbs sampling is an example of this: T_A only explores 1 variable, T_B the other one. For discrete it's easy; for continuous more tricky. If the conditional distribution "has a name", we can use a library. Does requires some maths. WinBUGS, STAN, JAGS derives the conditionals of the model for you, and it works out how to do the updates. No choice of stepsize required. Fallback: Metropolis 
+% % \begin{itemize}
+% % \item Gibbs sampling may not work well if the variables are correlated.
+% % \newline
+% % \arrow Transform the space (e.g., Adaptive Direction Sampling)\newline
+% % \arrow Blocking/Collapsing (update more than 1 variable at once) % 1:18 in video
+% % \item Probabilistic programming makes various choices for you. 
+% % \item Auxiliary variable MCMC (e.g., Slice, Swendsen-Wang, HMC, ...)
+% % \end{itemize}
+% % \end{frame}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}
+% \frametitle{Gibbs Sampling: Ergodicity}
+% \begin{figure}
+% \centering
+% \includegraphics[height = 3.5cm]{./figures/mcmc/gibbs_hard_time}
+% \end{figure}
+
+% \begin{itemize}
+% \item $p(\vec x)$ is invariant
+% \item \cemph{Ergodicity:} Sufficient to show that all conditionals are
+%   greater than 0. \\
+%   \arrow Then any point in $x$-space can be reached from any other
+%   point (potentially with low probability) in a finite number of steps
+%   involving one update of each of the component variables.
+% \end{itemize}
+% \end{frame}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}
+% \frametitle{Finding the Conditionals}
+% \begin{enumerate}
+% \item Write down the (log-) joint distribution $p(x_1,\dotsc, x_n)$
+% \item For each $x_i$
+% \begin{enumerate}
+% \item Throw away all terms that do not depend on the current sampling variable
+% \item Pretend this is the density for your variable of interest and all other variables are fixed. What distribution does the log-density remind you of?
+% \item That is your conditional sampling density $p(x_i|\vec
+%   x_{\backslash i})$
+% \end{enumerate}
+% \end{enumerate}
+% \end{frame}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+% \begin{frame}
+% \frametitle{Example}
+% \begin{itemize}
+% \item Model:
+% \begin{align*}
+% &y_i \sim \gauss{\mu}{\tau\inv}\,,\quad 
+% \mu \sim \gaussx{\mu}{0}{1}\,,\quad
+%       \tau \sim \text{Gamma}(\tau | 2,1)\\
+%   &\text{Gamma}(\tau|2,1) =   \frac{1}{\Gamma(2)}\tau \exp(-\tau)
+% \end{align*}
+% %\vspace{-10mm}
+% \item \textbf{Objective:} Generate samples from the parameter
+%   posterior $p(\mu, \tau|y_1,\dotsc, y_N)$ given $N$ observations
+%   $y_1, \dotsc, y_N$
+% \pause
+% \item Then
+% \begin{align*}
+% p(\vec y,\mu,\tau) &= \prod\nolimits_{i=1}^N p(y_i|\mu, \tau)p(\mu)p(\tau)\\
+% &\propto
+%   \tau^{N/2}\exp(-\frac{\tau}{2}\sum\nolimits_i(y_i-\mu)^2)\exp(-\tfrac{1}{2}\mu^2)\tau\exp(-\tau)\\
+% \onslide+<3->{
+% p(\mu|\tau, \vec y) &= \gaussx{\mu}{\tfrac{\tau\sum\nolimits_i y_i}{1+N\tau}}{(1+N\tau)\inv}\\
+% p(\tau|\mu, \vec y) &= \text{Gamma}(\tau | 2+\tfrac{N}{2},
+%               1+\tfrac{1}{2}\sum\nolimits_i (y_i - \mu)^2)
+% }
+% \end{align*}
+% \end{itemize}
+% \end{frame}
+
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \begin{frame}
+% \frametitle{Gibbs Sampling: Properties}
+% \begin{itemize}[<+->]
+% \item Gibbs is Metropolis-Hastings with acceptance
+%   probability 1:\\
+%   Sequence of proposal distributions $q$ is defined in terms of
+%   \underline{conditional} distributions of the joint $p(\vec x)$
+%   \\
+%   \arrow \cemph{Converge} to equilibrium distribution: $p^\idx{t}(\vec
+%   x)\stackrel{t\to\infty}{\longrightarrow} p(\vec x)$\\
+%   \arrow Exploration by random walk behavior can be slow
+% \item \cemph{No adjustable parameters} (e.g., step size)%: Automatically governed by the conditional distribution
+% \item Applicability depends on how easy it is to draw samples from the
+%   conditionals
+% \item May not work well if the \calert{variables are correlated}
+% % \\
+% % \arrow Blocking/Collapsing (update more than 1 variable at once) \\% 1:18 in video
+% % \arrow Auxiliary variable MCMC (e.g., Slice, Swendsen-Wang, HMC, ...)
+% \item \cemph{Statistical software} derives the conditionals of the
+%   model, and it works out how to do the updates:
+%   STAN\footnote{\url{http://mc-stan.org/}},
+%   WinBUGS\footnote{\url{http://www.mrc-bsu.cam.ac.uk/software/bugs/}},
+%   JAGS\footnote{\url{http://mcmc-jags.sourceforge.net/}}
+% \end{itemize}
+
+% \end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}
+% \frametitle{Flavors of Gibbs Sampling}
+% \begin{itemize}
+% \item \cemph{Collapsed Gibbs sampler:} Analytically integrate out some
+%   parameters and sample the rest.\newline
+% \arrow Tends to be much more efficient with smaller variance \\(see
+% Rao-Blackwellization in the state estimation literature)\nocite{Liu1994}
+% \item \cemph{Block-Gibbs sampler:} Sample groups of variables at a
+%   time instead of single-site updating
+% \end{itemize}
+
+% \end{frame}
+
+
+
+% \input{mcmc_analysis}
+
+
+\begin{frame}
+\frametitle{MCMC Diagnostics: Trace Plots}
+\begin{figure}
+\centering
+\includegraphics[height = 3cm]{./figures/mcmc/mcmcGmmDemoSigma1-traceplot}
+\hspace{5mm}
+\includegraphics[height = 3cm]{./figures/mcmc/mcmcGmmDemoSigma0-traceplot}
+\\[2mm]
+{\small Figure from Murphy (2012)\nocite{Murphy2012}}
+\end{figure}
+\begin{itemize}
+\item  \cemph{Mixing time:} Amount of time it takes the Markov chain to
+  converge to the stationary distribution and forget its initial
+  state.
+\item \cemph{Trace plots:} Run multiple chains from very different starting
+  points, plot the samples of the variables of interest. If the chain
+  has mixed, the trace plots should converge to the same distribution.
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Summary}
+
+  \begin{itemize}
+  \item MCMC generates a Markov chain of dependent samples that allow
+    us to generate samples from the target distribution
+  \item Metropolis Hastings algorithm
+  \end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Further Reading}
+\begin{itemize}
+\item MacKay, ch 29
+\item Murphy, ch 24
+\end{itemize}
+\end{frame}
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}[t,allowframebreaks]
+\frametitle{References}
+\linespread{1.0}
+\tiny
+\bibliographystyle{abbrv}
+\bibliography{../includes/pi-literature}
+\end{frame}
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 
