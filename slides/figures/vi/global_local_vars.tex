@@ -1,0 +1,15 @@
+\begin{tikzpicture}
+    \node[latent](z) at (-2,0) {$\vec z_n$};
+    \node[obs](x) at (0,0) {$\vec x_n$};
+    \node[latent](beta) at (-1,1){$\vec\beta$};
+    %\edge{z,mu,sigma}{x};
+    \edge{z}{x}
+    \edge{beta}{x,z}
+    \plate {xz} {(x)(z)} {$n=1,\dotsc, N$} ;
+    \node[const] at (-4,0) {\small Local variables};
+    \node[const] at (-3.9,1) {\small Global variables};
+\end{tikzpicture}
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "../lecture_variational_inference"
+%%% End:

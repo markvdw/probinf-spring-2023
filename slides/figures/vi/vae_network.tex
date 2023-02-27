@@ -1,0 +1,83 @@
+\tikzstyle{ipe stylesheet} = [
+  ipe import,
+  even odd rule,
+  line join=round,
+  line cap=butt,
+  ipe pen normal/.style={line width=0.4},
+  ipe pen heavier/.style={line width=0.8},
+  ipe pen fat/.style={line width=1.2},
+  ipe pen ultrafat/.style={line width=2},
+  ipe pen normal,
+  ipe mark normal/.style={ipe mark scale=3},
+  ipe mark large/.style={ipe mark scale=5},
+  ipe mark small/.style={ipe mark scale=2},
+  ipe mark tiny/.style={ipe mark scale=1.1},
+  ipe mark normal,
+  /pgf/arrow keys/.cd,
+  ipe arrow normal/.style={scale=7},
+  ipe arrow large/.style={scale=10},
+  ipe arrow small/.style={scale=5},
+  ipe arrow tiny/.style={scale=3},
+  ipe arrow normal,
+  /tikz/.cd,
+  ipe arrows, % update arrows
+  <->/.tip = ipe normal,
+  ipe dash normal/.style={dash pattern=},
+  ipe dash dashed/.style={dash pattern=on 4bp off 4bp},
+  ipe dash dotted/.style={dash pattern=on 1bp off 3bp},
+  ipe dash dash dotted/.style={dash pattern=on 4bp off 2bp on 1bp off 2bp},
+  ipe dash dash dot dotted/.style={dash pattern=on 4bp off 2bp on 1bp off 2bp on 1bp off 2bp},
+  ipe dash normal,
+  ipe node/.append style={font=\normalsize},
+  ipe stretch normal/.style={ipe node stretch=1},
+  ipe stretch normal,
+  ipe opacity 10/.style={opacity=0.1},
+  ipe opacity 30/.style={opacity=0.3},
+  ipe opacity 50/.style={opacity=0.5},
+  ipe opacity 75/.style={opacity=0.75},
+  ipe opacity opaque/.style={opacity=1},
+  ipe opacity opaque,
+]
+\input{./figures/ipe_colors}
+\begin{tikzpicture}[ipe stylesheet]
+  \filldraw[ipe pen fat, fill=lightblue]
+    (128, 704) rectangle (192, 640);
+  \begin{scope}[shift={(2.4395, -108.214)}]
+    \node[ipe node]
+       at (144.414, 772) {$p(\vec x|\vec z)$};
+    \node[ipe node]
+       at (144, 784) {Model};
+  \end{scope}
+  \filldraw[ipe pen fat, fill=orange]
+    (240, 704) rectangle (304, 640);
+  \begin{scope}[shift={(12.3375, -86.214)}]
+    \node[ipe node]
+       at (246.62, 744) {$q(\vec z|\vec x)$};
+    \begin{scope}
+      \node[ipe node]
+         at (240, 768) {Inference};
+      \node[ipe node]
+         at (240, 756) {Network};
+    \end{scope}
+  \end{scope}
+  \draw[ipe pen fat, ->]
+    (160, 736)
+     -- (160, 704);
+  \node[ipe node]
+     at (157.465, 744) {$\vec z$};
+  \draw[ipe pen fat, ->]
+    (160, 640)
+     -- (160, 608);
+  \node[ipe node]
+     at (144, 592) {$\vec x\sim p(\vec x|\vec z)$};
+  \node[ipe node]
+     at (261.277, 592) {Data};
+  \draw[ipe pen fat, ->]
+    (272, 608)
+     -- (272, 640);
+  \draw[ipe pen fat, ->]
+    (272, 704)
+     -- (272, 736);
+  \node[ipe node]
+     at (249.779, 748) {$\vec z \sim q(\vec z|\vec x)$};
+\end{tikzpicture}

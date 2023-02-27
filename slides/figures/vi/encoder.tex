@@ -1,0 +1,92 @@
+\tikzstyle{ipe stylesheet} = [
+  ipe import,
+  even odd rule,
+  line join=round,
+  line cap=butt,
+  ipe pen normal/.style={line width=0.4},
+  ipe pen heavier/.style={line width=0.8},
+  ipe pen fat/.style={line width=1.2},
+  ipe pen ultrafat/.style={line width=2},
+  ipe pen normal,
+  ipe mark normal/.style={ipe mark scale=3},
+  ipe mark large/.style={ipe mark scale=5},
+  ipe mark small/.style={ipe mark scale=2},
+  ipe mark tiny/.style={ipe mark scale=1.1},
+  ipe mark normal,
+  /pgf/arrow keys/.cd,
+  ipe arrow normal/.style={scale=7},
+  ipe arrow large/.style={scale=10},
+  ipe arrow small/.style={scale=5},
+  ipe arrow tiny/.style={scale=3},
+  ipe arrow normal,
+  /tikz/.cd,
+  ipe arrows, % update arrows
+  <->/.tip = ipe normal,
+  ipe dash normal/.style={dash pattern=},
+  ipe dash dashed/.style={dash pattern=on 4bp off 4bp},
+  ipe dash dotted/.style={dash pattern=on 1bp off 3bp},
+  ipe dash dash dotted/.style={dash pattern=on 4bp off 2bp on 1bp off 2bp},
+  ipe dash dash dot dotted/.style={dash pattern=on 4bp off 2bp on 1bp off 2bp on 1bp off 2bp},
+  ipe dash normal,
+  ipe node/.append style={font=\normalsize},
+  ipe stretch normal/.style={ipe node stretch=1},
+  ipe stretch normal,
+  ipe opacity 10/.style={opacity=0.1},
+  ipe opacity 30/.style={opacity=0.3},
+  ipe opacity 50/.style={opacity=0.5},
+  ipe opacity 75/.style={opacity=0.75},
+  ipe opacity opaque/.style={opacity=1},
+  ipe opacity opaque,
+]
+\input{./figures/ipe_colors}
+\begin{tikzpicture}[ipe stylesheet]
+  \filldraw[ipe pen heavier, fill=orange]
+    (32, 800)
+     -- (32, 736)
+     -- (96, 752)
+     -- (96, 784)
+     -- (32, 800);
+  \draw[ipe pen heavier]
+    (112, 808) rectangle (128, 776);
+  \draw[ipe pen heavier]
+    (112, 760) rectangle (128, 728);
+  \node[ipe node]
+     at (116.999, 790.816) {$\vec \mu$};
+  \node[ipe node]
+  at (116.403, 740.596) {$\vec \Sigma$};
+   \draw[ipe pen heavier]
+    (152.9, 767) circle[radius=8];   
+  \node[ipe node]
+     at (149.465, 765) {$\vec z$};
+  \draw[ipe pen heavier, ->]
+    (128, 792)
+     -- (144, 768);
+  \draw[ipe pen heavier, ->]
+    (128, 744)
+     -- (144, 768);
+  % \draw[ipe pen heavier]
+  %   (144, 784) rectangle (160, 752);
+  % \node[ipe node]
+  %    at (144, 765.856) {$\vec z$};
+  %\draw[ipe pen heavier]
+    % (128, 792)
+  %    -- (144, 768);
+  % \draw[ipe pen heavier]
+  %   (128, 744)
+  %    -- (144, 768);
+  \draw[ipe pen heavier, ->]
+    (96, 768)
+     -- (112, 792);
+  \draw[ipe pen heavier, ->]
+    (96, 768)
+     -- (112, 744);
+  \node[ipe node]
+     at (50.957, 765.509) {$\vec\mu_{\vec\theta}, \mat\Sigma_{\vec\theta}$};
+  \node[ipe node]
+     at (16, 765.856) {$\vec x$};
+\end{tikzpicture}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "../lecture_variational_inference"
+%%% End:

@@ -1,0 +1,119 @@
+
+% Otherwise some colors may look a bit different in ipe and TeX
+\PassOptionsToPackage{rgb}{xcolor}
+
+\documentclass{article}
+\usepackage[papersize={595bp,842bp},scale=1,margin=0pt]{geometry}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,patterns}
+\usetikzlibrary{ipe} % ipe compatibility library
+
+\tikzstyle{ipe stylesheet} = [
+  ipe import,
+  even odd rule,
+  line join=round,
+  line cap=butt,
+  ipe pen normal/.style={line width=0.4},
+  ipe pen heavier/.style={line width=0.8},
+  ipe pen fat/.style={line width=1.2},
+  ipe pen ultrafat/.style={line width=2},
+  ipe pen normal,
+  ipe mark normal/.style={ipe mark scale=3},
+  ipe mark large/.style={ipe mark scale=5},
+  ipe mark small/.style={ipe mark scale=2},
+  ipe mark tiny/.style={ipe mark scale=1.1},
+  ipe mark normal,
+  /pgf/arrow keys/.cd,
+  ipe arrow normal/.style={scale=7},
+  ipe arrow large/.style={scale=10},
+  ipe arrow small/.style={scale=5},
+  ipe arrow tiny/.style={scale=3},
+  ipe arrow normal,
+  /tikz/.cd,
+  ipe arrows, % update arrows
+  <->/.tip = ipe normal,
+  ipe dash normal/.style={dash pattern=},
+  ipe dash dashed/.style={dash pattern=on 4bp off 4bp},
+  ipe dash dotted/.style={dash pattern=on 1bp off 3bp},
+  ipe dash dash dotted/.style={dash pattern=on 4bp off 2bp on 1bp off 2bp},
+  ipe dash dash dot dotted/.style={dash pattern=on 4bp off 2bp on 1bp off 2bp on 1bp off 2bp},
+  ipe dash normal,
+  ipe node/.append style={font=\normalsize},
+  ipe stretch normal/.style={ipe node stretch=1},
+  ipe stretch normal,
+  ipe opacity 10/.style={opacity=0.1},
+  ipe opacity 30/.style={opacity=0.3},
+  ipe opacity 50/.style={opacity=0.5},
+  ipe opacity 75/.style={opacity=0.75},
+  ipe opacity opaque/.style={opacity=1},
+  ipe opacity opaque,
+]
+
+\definecolor{red}{rgb}{1,0,0}
+\definecolor{green}{rgb}{0,1,0}
+\definecolor{blue}{rgb}{0,0,1}
+\definecolor{yellow}{rgb}{1,1,0}
+\definecolor{orange}{rgb}{1,0.647,0}
+\definecolor{gold}{rgb}{1,0.843,0}
+\definecolor{purple}{rgb}{0.627,0.125,0.941}
+\definecolor{gray}{rgb}{0.745,0.745,0.745}
+\definecolor{brown}{rgb}{0.647,0.165,0.165}
+\definecolor{navy}{rgb}{0,0,0.502}
+\definecolor{pink}{rgb}{1,0.753,0.796}
+\definecolor{seagreen}{rgb}{0.18,0.545,0.341}
+\definecolor{turquoise}{rgb}{0.251,0.878,0.816}
+\definecolor{violet}{rgb}{0.933,0.51,0.933}
+\definecolor{darkblue}{rgb}{0,0,0.545}
+\definecolor{darkcyan}{rgb}{0,0.545,0.545}
+\definecolor{darkgray}{rgb}{0.663,0.663,0.663}
+\definecolor{darkgreen}{rgb}{0,0.392,0}
+\definecolor{darkmagenta}{rgb}{0.545,0,0.545}
+\definecolor{darkorange}{rgb}{1,0.549,0}
+\definecolor{darkred}{rgb}{0.545,0,0}
+\definecolor{lightblue}{rgb}{0.678,0.847,0.902}
+\definecolor{lightcyan}{rgb}{0.878,1,1}
+\definecolor{lightgray}{rgb}{0.827,0.827,0.827}
+\definecolor{lightgreen}{rgb}{0.565,0.933,0.565}
+\definecolor{lightyellow}{rgb}{1,1,0.878}
+\definecolor{black}{rgb}{0,0,0}
+\definecolor{white}{rgb}{1,1,1}
+
+\begin{document}
+\thispagestyle{empty}
+\noindent
+\begin{tikzpicture}[ipe stylesheet]
+  \useasboundingbox (0, 0) rectangle (595, 842);
+  \draw[shift={(9.893, 640.922)}, xscale=1.3418, yscale=0.5689, ipe pen fat]
+    (0, 0)
+     .. controls (10.6667, 26.6667) and (58.6667, 74.6667) .. (109.3333, 69.3333)
+     .. controls (160, 64) and (213.3333, 5.3333) .. (234.6667, -50.6667)
+     .. controls (256, -106.6667) and (245.3333, -160) .. (208, -200)
+     .. controls (170.6667, -240) and (106.6667, -266.6667) .. (88, -248)
+     .. controls (69.3333, -229.3333) and (96, -165.3333) .. (96, -122.6667)
+     .. controls (96, -80) and (69.3333, -58.6667) .. (42.6667, -45.3333)
+     .. controls (16, -32) and (-10.6667, -26.6667) .. cycle;
+  \pic[ipe mark large]
+     at (384, 640) {ipe disk};
+  \pic[ipe mark large]
+     at (176, 608) {ipe disk};
+  \draw[ipe pen fat, -{>[ipe arrow large]}]
+    (176, 608)
+     .. controls (224, 624) and (288, 560) .. (334.005, 598.831);
+  \draw[red, ipe pen fat]
+    (384, 640)
+     -- (333.966, 598.799);
+  \node[ipe node]
+     at (192, 656) {$q(z|\nu)$};
+  \node[ipe node]
+     at (167.012, 593.361) {$\nu^{init}$};
+  \node[ipe node]
+     at (327.276, 579.707) {$\nu^{*}$};
+  \node[ipe node]
+     at (370.853, 650.2) {$p(z|x)$};
+  \pic[ipe mark large]
+     at (334.005, 598.831) {ipe disk};
+  \node[ipe node, font=\footnotesize]
+     at (199.431, 464) {\it \sffamily Figure adopted from Blei et al.'s NIPS-2016 tutorial};
+\end{tikzpicture}
+\end{document}
+

@@ -1,0 +1,1419 @@
+%% Time-stamp: <2019-03-01 13:49:57 (marc)>
+\documentclass[xcolor=x11names,compress, mathserif,xcolor=table]{beamer}
+\newcommand\hmmax{0}
+\newcommand\bmmax{0}
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{Variational Inference}}
+\newcommand{\footertitle}{Variational Inference}
+\newcommand{\location}{Imperial College}
+\newcommand{\talkDate}{February 27, 2023}
+
+\newcommand{\lb}{\mathcal{L}}
+
+
+
+\date{\imperialGray{\talkDate}}
+
+\usepackage{../includes/MarkMathCmds}
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+
+\linespread{1.2}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}
+  \begin{center}
+    \Large \emph{Introduction and Background}
+  \end{center}
+\end{frame}
+%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}{Approximate Inference Methods}
+  \begin{itemize}
+  \item Laplace approximation
+    \begin{itemize}
+      \item Procedure to give Gaussian
+      \item Fixed and limited approximation quality
+      \item No way to use better approximating distributions
+      \item No measure of quality of approximation
+    \end{itemize} \pause
+  \item Markov Chain Monte Carlo (to sample from the posterior)
+    \begin{itemize}
+      \item Would always converge to the right answer
+      \item No idea about how long it takes to converge
+    \end{itemize} \pause
+%  \item Expectation propagation (Minka, 2001)\nocite{Minka2001}
+  \item \emph{Variational inference} (Jordan et al., 1999)\nocite{Jordan1999}
+    \begin{itemize}
+      \item Somewhere in between
+      \item Can (in principle) use complicated approximating distributions
+      \item Has measure of approximation quality
+    \end{itemize}
+  \end{itemize}
+
+% \pause
+% \vspace{0.5cm}
+
+% Laplace was of fixed quality, MCMC got better with more time.
+% Variational inference somewhere in between.
+  
+\end{frame}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}{Further Reading}
+  \begin{itemize}
+    \item Pattern Recognition and Machine Learning, Chapter 10 (Bishop,
+      2006)\nocite{Bishop2006}
+    \item Machine Learning: A Probabilistic Perspective, Chapter 21
+      (Murphy, 2012)\nocite{Murphy2012}
+    \item \cemph{Variational Inference: A Review for Statisticians (Blei et
+      al., 2017)}\nocite{Blei2017}
+    \item \cemph{NIPS-2016 Tutorial by Blei, Ranganath, Mohamed} \\
+      {\small{\url{https://nips.cc/Conferences/2016/Schedule?showEvent=6199}}}
+    \item Tutorials by S. Mohamed\\
+      \cemph{\small{\url{http://shakirm.com/papers/VITutorial.pdf}}}\\
+      \small{\url{http://shakirm.com/slides/MLSS2018-Madrid-ProbThinking.pdf}}
+  \end{itemize}
+  
+\end{frame}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}{Variational Inference}
+  \begin{itemize}
+  \item Variational inference is the most \cemph{scalable approximate inference method}
+    available (at the moment)
+  \item Can handle (arbitrarily) large datasets
+    \pause
+  \item Applications include:
+    \begin{itemize}
+    \item Topic modeling (Hoffman et al., 2013)\nocite{Hoffman2013}
+    \item Community detection (Gopalan \& Blei, 2013)\nocite{Gopalan2013a}
+    \item Genetic analysis (Gopalan et al., 2016)\nocite{Gopalan2016}
+    \item Reinforcement learning (e.g., Eslami et al., 2016)\nocite{Eslami2016}
+    \item Neuroscience analysis (Manning et al., 2014)\nocite{Manning2014}
+    \item Compression and content generation (Gregor et al., 2016)\nocite{Gregor2015}
+    \item Traffic analysis (Kucukelbir et al., 2016; Salimbeni \&
+      Deisenroth, 2017)\nocite{Kucukelbir2017,
+        Salimbeni2017}
+    \end{itemize}
+  \end{itemize}
+
+\end{frame}
+%\input{marginal_likelihood}
+
+
+
+\begin{frame}{Key Idea: Approximation by Optimization}
+
+  \begin{figure}
+    \centering
+    \scalebox{0.5}{\input{./figures/vi/vi_optimization_sketch}}
+  \end{figure}
+  \pause
+  \begin{itemize}
+  \item Find approximation of a probability distribution (e.g.,
+    posterior) by \cemph{optimization}:
+    \begin{enumerate}
+    \item Define a (parametrized) family of approximating
+      distributions $q_{\vec\nu}$
+    \item Define a measure of similarity of distributions to the true posterior
+    \item Optimize objective function w.r.t. \cemph{variational
+        parameters} $\vec\nu$
+      \end{enumerate}
+    \item Inference \arrow Optimization
+    \end{itemize}
+    
+\end{frame}
+
+
+
+\begin{frame}
+  \begin{center}
+    \Large \emph{From importance sampling to variational inference}
+  \end{center}
+\end{frame}
+
+
+
+\begin{frame}{Problem setting}
+\begin{itemize}
+\item We have the joint $p(\vx, \vz)$.
+\item We are interested in posterior $p(\vz|\vx)$.
+\item Marginal likelihood is $p(\vx) = \int p(\vx, \vz) \calcd{\vz}$.
+\end{itemize}
+
+\vspace{0.4cm}
+
+This is a very general formulation, as $\vz$ can be a vector containing many random variables. We will consider variational bounds for more structured graphical models later.
+\end{frame}
+
+
+
+
+\begin{frame}{Importance sampling}
+In Q34 we saw a connection between the \emph{variance of importance sampling} and the \emph{proposal being the posterior}.
+\begin{align}
+I &= \int p(\vx\given\vz)p(\vz)\calcd{\vz} \\
+\hat I &= \frac{1}{S} \sum_{s=1}^S \frac{p(\vx\given\vz^{[s]})p(\vz^{[s]})}{q(\vz^{[s]})} \,, && \vz^{[s]} \sim q(\vz) \,.
+\end{align}
+\pause
+\begin{align}
+\mathbb{V}_{q(\vz)}[\hat I] = 0 \quad \text{iff} \quad q(\vz) = p(\vz\given\vx) = \frac{p(\vx\given\vz)p(\vz)}{p(\vx)}
+\end{align}
+\end{frame}
+
+
+\begin{frame}{Importance sampling}
+Importance sampling gave an \emph{unbiased} approximation of the marginal likelihood.
+\begin{itemize}
+\item View $q(\vz)$ as an approximation to $p(\vz\given\vx)$
+\item Estimator variance is a measure of quality of $q(\vz) \approx p(\vz\given\vx)$
+\end{itemize}
+
+\pause
+\vspace{0.5cm}
+
+By comparing the variance of approximations we could compare different $q(\vz)$ as approximations to $p(\vz\given\vx)$.
+
+How to compare approximations?
+\begin{itemize}
+\item Draw many samples
+\item Estimate variance using samples
+\end{itemize}
+\pause
+Problem: High variance makes it hard to compare
+\end{frame}
+
+
+\begin{frame}{Lower bounds}
+  Instead of \emph{unbiased} estimates where we try to \emph{minimise the variance}, we can have a \emph{biased} estimate, where we try to \emph{minimise the bias}.
+
+  \vspace{0.3cm}
+  \pause
+
+  Lower bound
+  \begin{align}
+    \log p(\vx) \geq \lb(q(\vz))
+  \end{align}
+
+  \pause
+
+  Wishlist of properties:
+  \begin{itemize}
+    \item The posterior recovers the marginal likelihood $\lb(p(\vz\given\vx)) = p(\vy)$
+    \item Continuous in $q(\vz)$
+    \item Easily computable estimate
+  \end{itemize}
+\pause
+\begin{center}
+Procedure: \emph{Adjust $q(\vz)$ to maximise $\lb$}.
+\end{center}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Jensen's Inequality}
+An important result from convex analysis:
+\begin{columns}
+  \column{0.7\hsize}
+\begin{myblock}{Jensen's Inequality}
+For concave functions $f$:
+\begin{align*}
+f(\E[\vec z]) \geq \E[f(\vec z)]
+\end{align*}
+\end{myblock}
+\column{0.23\hsize}
+\includegraphics[width=\hsize]{./figures/vi/concave_function}
+\end{columns}
+\vspace{4mm}
+\pause
+Logarithms are concave. Therefore:
+\begin{align*}
+\log \E[g(\vec z)] = \log \int g(\vec z) p(\vec z) d\vec z \geq \int
+p(\vec z) \log g(\vec z) d\vec z = \E[\log g(\vec z)]
+\end{align*}
+\pause
+Idea: For estimating the log marginal likelihood, use Jensen's inequality
+instead of Monte Carlo.
+\end{frame}
+
+
+\begin{frame}{Deriving the Variational Lower Bound}
+  Look at log-marginal likelihood (log-evidence): 
+  \begin{align*}
+    \log p(\vec x) &= \log \int p(\vec x|\vec z) p(\vec z) d\vec z\\
+    \onslide+<2->{&= \log \int p(\vec x|\vec z) p(\vec z) \frac{q(\vec z)}{q(\vec
+    z)}d\vec z\\}
+    \onslide+<3->{&= \log \int p(\vec x|\vec z) \frac{p(\vec z)}{q(\vec z)} q(\vec z)
+    d\vec z\\}
+     \onslide+<4->{&= \log\E_q\left[p(\vec x|\vec z)\frac{p(\vec z)}{q(\vec
+    z)}\right]\\}
+     \onslide+<5->{&\blue{\geq}\E_q\log\left(p(\vec x|\vec z)\frac{p(\vec z)}{q(\vec
+    z)}\right)\\}
+     \onslide+<6->{&=\E_q[\log p(\vec x|\vec z)] - \E_q\left[\log\left(\frac{q(\vec
+    z)}{p(\vec z)}\right)\right]\\}
+     \onslide+<7->{&=\E_q[\log p(\vec x|\vec z)]-\KL{q(\vec z)}{p(\vec z)}}
+  \end{align*}
+\end{frame}
+
+
+
+\begin{frame}{What have we gained?}
+Marginal likelihood bound\footnote{Also called \emph{negative variational free energy}, or \emph{Evidence Lower BOund} (ELBO).}:
+\begin{align}
+\lb(q) = \E_q[\log p(\vec x|\vec z)]-\KL{q(\vec z)}{p(\vec z)}
+\end{align}
+
+\begin{itemize}
+\item Objective function that can be optimised to find $q(\vz)$
+\begin{itemize}
+\item Terms only include prior and likelihood (can evaluate)
+\item Often, integrals \emph{can} be found in closed form!
+\end{itemize} \pause
+\item Bound allows us to compare approximations! Higher is better.
+\begin{itemize}
+\item Compare to importance sampling: Two estimates with unknown variances. Don't know which one to believe!
+\end{itemize}
+\end{itemize}
+
+\pause
+
+\vspace{0.3cm}
+With parameterised $q_\mathbf{v}(\vz)$, use gradient-based optimisation to find $\vv$.
+
+\end{frame}
+
+
+
+
+\begin{frame}
+  \begin{center}
+    A different derivation: \\
+    \Large \emph{Minimising the KL}
+  \end{center}
+\end{frame}
+
+
+
+
+
+\begin{frame}{What is the measure of similarity?}
+\begin{itemize}
+\item So far, the justification for VI came from that if $q(\vz) = p(\vz\given\vx)$, then $\lb = \log p(\vx)$.
+\item Measure of similarity to $p(\vz\given\vx)$ was defined simply as ``how good a bound'' does the $q(\vz)$ give.
+\end{itemize}
+\pause
+
+\vspace{0.5cm}
+\begin{center}
+\large \emph{Can we understand more about the measure of similarity?}
+\end{center}
+\end{frame}
+
+
+
+
+
+
+\begin{frame}{What is the measure of similarity?}
+We can find an equation for the measure of similarity by investigating the difference between $\lb$ and $\log p(\vx)$:
+\begin{align*}
+\log p(\vx) - \lb &= \log p(\vx) - \int q(\vz) \log \frac{p(\vx\given\vz)p(\vz)}{q(\vz)} \calcd{\vz} \\
+&= \int q(\vz) \log p(\vx) \calcd{\vz} - \int q(\vz) \log \frac{p(\vx\given\vz)p(\vz)}{q(\vz)} \calcd{\vz} \\
+&= \int q(\vz) \log \frac{p(\vx) q(\vz)}{p(\vx\given\vz)p(\vz)} \calcd{\vz} \\
+&= \int q(\vz) \log \frac{q(\vz)}{p(\vz\given\vx)} \calcd{\vz} \\
+&= \KL{q(\vz)}{p(\vz\given\vx)}
+\end{align*}
+\pause
+\vspace{-0.3cm}
+\begin{center}
+\Large \emph{VI minimises the KL from the true posterior!}
+\end{center}
+\end{frame}
+
+
+
+
+
+% \begin{frame}
+%   \begin{center}
+%     \Large \emph{Analytic bounds and optimisation}
+%   \end{center}
+% \end{frame}
+
+
+
+
+% \begin{frame}{Model Class}
+% Exact Bayes is intractable, variational inference is tractable.
+
+%   \begin{center}
+%   \input{./figures/vi/global_local_vars}
+% \end{center}
+%   \begin{itemize}
+% \item All unknown parameters are described by random variables
+%   \begin{itemize}
+%   \item \cemph{Global random variables $\vec\beta$}, which control all
+%     the data
+%   \item \cemph{Local random variables $\vec z_n$}, which are local to
+%     individual data points $\vec x_n$
+%   \end{itemize}
+%   \pause
+% \item Example: Gaussian mixture model
+%   \pause
+  
+%   \begin{itemize}
+%   \item Global: means, covariances, weights $\vec\mu_k, \mat\Sigma_k, \pi_k$
+%   \item Local: assignments $\vec z_{n}$
+%   \end{itemize}
+% % \item Generally: global parameters $\beta$, local parameters
+% %     (per data point) $z_n$
+%   \end{itemize}
+
+% \end{frame}
+
+
+% \begin{frame}{Complete Conditional}
+% \begin{center}
+%   \input{./figures/vi/global_local_vars}
+% \end{center}
+
+
+%   \begin{itemize}
+%     \item \emph{Complete conditional:} Conditional of a single latent
+%       variable given the observations and all other latent variables
+%       \begin{align*}
+%         &p(\vec z_n|\vec \beta, \vec x_n)\\
+%         &p(\vec \beta|\vec z_{1:N}, \vec x_{1:N})
+%       \end{align*}
+%       \pause
+%       \vspace{-5mm}
+%     \item Assume that each \cemph{complete conditional} is a member of
+%       the \cemph{exponential family} (Bernoulli, Beta, Gamma,
+%       Gaussian, ...)\\
+%       \arrow \cemph{Conditionally conjugate models}
+%     \end{itemize}
+% \end{frame}
+
+
+% \begin{frame}{Generic Class of Models: Examples}
+%     \begin{itemize}
+%     \item Bayesian mixture models
+%     \item Hidden Markov models
+%     \item Factor analysis
+%     \item Principal component analysis
+%     \item Linear regression
+%     \end{itemize}
+%   \end{frame}
+
+
+
+
+% \begin{frame}{Example: Gaussian Mixture Model}
+% \begin{center}
+%   \input{./figures/vi/global_local_vars}
+% \end{center}
+% \begin{align*}
+% \vec \beta &= \left\{\vmu_k, \mat \Sigma_k, \pi_k\right\}_{k=1}^K \\
+% p(\vmu_k, \mat \Sigma_k) &= \NormDist{\vmu_k; 0, \mat \Sigma_k}\mathrm{Wi}\inv\left(\Sigma_k ; \mat \Sigma_0, \nu_0 \right) && \text{Normal-Wishart}\\
+% p(\vec \pi) &= \mathrm{Dir}\left(\vec \pi ; \vec \alpha_0\right) && \text{Dirichlet}\\
+% P(z_n = k\given \vec\pi) &= \pi_k && \text{Categorical} \\
+% p(\vx_n\given z_n = k, \vec \beta) &= \NormDist{\vx_n; \vmu_k, \mat\Sigma_k}
+% \end{align*}
+% \end{frame}
+
+
+% \begin{frame}{Example: Gaussian Mixture Model}
+% Gaussian Mixture Model is conditionally conjugate.
+% \begin{align}
+% p(z_n = k \given \vec\beta, \vx_n) &= \frac{\NormDist{\vx_n; \vmu_k, \mat\Sigma_k}\pi_k}{\sum_{k'=1}^K \NormDist{\vx_n; \vmu_{k'}, \mat\Sigma_{k'}}\pi_{k'}} && \text{Categorical} \\
+% p(\vec\beta\given \{z_n, \vx_n\}_{n=1}^N) &= \mathrm{Dir}\left(\vec\alpha_0 + \vec n\right) \nonumber \\
+% & \qquad \prod_{k=1}^K \NormDist{\vmu_k; \vm_k, \frac{1}{1 + N}\mat\Sigma_k} \nonumber \\
+% & \qquad \mathrm{Wi}\inv\left(
+% \Sigma_k; \mat S_k, \nu_k\right) \\
+% \vm_k = \frac{N}{1 + N}\bar{\vx}_k \,, &\mat S_k = \mat S_0 + \bar{\mat S}_k \,, \nu_N = \nu_0 + N
+% \end{align}
+% \pause
+% (See Murphy \S 4.6)
+% \end{frame}
+
+
+
+% \begin{frame}{VI for Conditionally Conjugate Models}
+% We will discuss a \emph{general} variational procedure for \emph{conditionally conjugate models}, using the Gaussian Mixture Model as an example.
+
+% \pause
+
+% \vspace{0.5cm}
+
+% Procedure:
+% \begin{enumerate}
+% \item Remember our objective (ELBO)
+% \item Choose a family of approximating distributions, such that we can compute objective
+% \item Optimise objective w.r.t.~approximating distribution
+% \end{enumerate}
+% \end{frame}
+
+
+
+
+
+% \begin{frame}{VI for Conditionally Conjugate Models}
+%   Single assumption, fully factorised (mean field) approximation:
+%   \begin{align*}
+%     q_{\vec v}(\vec \beta, \vec z) = q_{\vec\lambda}(\vec \beta) \prod_{n=1}^N q_{\vec\phi_n}(\vec
+%     z_n)    \,, \quad \vec\nu = \{\vec\lambda,
+%     \vec\phi_1,\dotsc, \vec\phi_N\}
+%   \end{align*}
+
+%   \vspace{0.5cm}
+
+%   From this assumption, we can derive the \emph{optimal factor} given all other factors are fixed, i.e.~we find
+%   \begin{align*}
+%     q^*(\vz_n) = \argmax_{q(\vz_n) \in \mathcal{Q}} \lb(q_{\vec v}(\vec\beta, \vec\vz))
+%   \end{align*}
+%   where $\mathcal{Q}$ is the space of all possible densities.
+% \end{frame}
+
+
+% \begin{frame}{Optimizing in Turn}
+%   \begin{itemize}
+%   \item Independent latent variables: \colchar{$q(\vec z) = \prod_n
+%     q(\vec z_n|\vec\phi_n)=\prod_nq_n(\vec z_n)$}{blue}\newline
+%     \arrow Optimize variational
+%     parameters in turn
+%     \begin{align*}
+%       \onslide+<2->{\text{ELBO} &=\E_q\left[\log \left(p(\vec x|\vec z)
+%                                   \frac{p(\vec z)}{q(\vec z)}\right)\right]
+%                                   }
+%       %=\E_q\left[\log \frac{p(\vec x, \vec z)}{q(\vec z)}\right] \\
+% \onslide+<3->{
+%       = \E_q[\orange{\log p(\vec x, \vec z)} \blue{- \log q(\vec z)}]\\
+%       }
+%       \onslide+<4->{
+%       &=\orange{ \E_{q_n}\Big[\underbrace{\E_{i\neq n}[\log p(\vec x, \vec
+%         z)]}_{=:\hat p(\vec x, \vec z_n)}\Big]} \blue{-
+%         \E_{q_n}[\log q_n(\vec z_n)] - \sum_{i\neq n}\E_{q_i}[\log q_i(\vec
+%         z_i)]}\\
+%       }
+%       \onslide+<5->{
+%       &=\orange{\E_{q_n}[\hat p(\vec x, \vec z_n)]}\blue{ - \E_{q_n}[\log q_n(\vec z_n)]
+%       - \sum_{i\neq n}\E_{q_i}[\log q_i(\vec
+%         z_i)]}
+%         }
+%     \end{align*}
+%     \onslide+<6->{
+%     \item Fix $q_{i\neq n}$ and optimize factor $q_n$:
+%     }
+%  \onslide+<7->{
+%     \begin{align*}
+%       \text{ELBO}(q_n) & = \E_{q_n}[\hat p(\vec x, \vec z_n)] - \E_{q_n}[\log
+%                   q_n(\vec z_n)] + \text{const}\\
+%       \onslide+<8->{
+%                        &= \E_{q_n}\left[\log \frac{\exp(\hat p(\vec x, \vec
+%         z_n))}{q_n(\vec z_n)}\right] = -\KL{q_n(\vec z_n)}{\exp(\hat p(\vec x, \vec
+%                          z_n))}
+%                          }
+%     \end{align*}
+%     }
+%   \end{itemize}
+% \end{frame}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}{Optimal Factors}
+%   \begin{align*}
+%       \text{ELBO}(q_n) &=  -\KL{q_n(\vec z_n)}{\exp(\hat p(\vec x, \vec
+%         z_n))}
+%     \end{align*}
+%   \begin{itemize}[<+->]
+%   \item Maximizing the ELBO w.r.t. $q_n$ is equivalent to minimizing $\KL{q_n(\vec z_n)}{\exp(\hat p(\vec x, \vec
+%       z_n))}$
+%       $$
+%       \arrow~\colchar{$\log q_n^*(\vec z_n) = \hat p(\vec x, \vec z_n) =
+%       \E_{q_{i\neq n}} [\log p(\vec x, \vec z)] + \text{const}$}{blue}
+%       $$
+%     \item
+%       Get the optimal factor $q_n^*$ by
+%       \begin{enumerate}
+%         \item Writing down the log-joint distribution of all latent
+%           and observed variables $\log p(\vec x, \vec z)$
+%          \item Computing the expectation w.r.t. all other random variables
+%       \end{enumerate}
+%     \end{itemize}
+% \end{frame}
+
+
+% \begin{frame}{Mean-Field VI for Conditionally Conjugate Models}
+%   \begin{center}
+%     \scalebox{0.8}{\input{./figures/vi/mean_field_variational_parameters}}
+%   \end{center}
+%   \begin{itemize}[<+->]
+%   \item \cemph{Optimal factors} (see Bishop (2006)\nocite{Bishop2006} or
+%     Ghahramani \& Beal (2001)\nocite{Ghahramani2001, Beal2003}):
+%     \begin{align*}
+%       % q^*(\vec\beta|\vec\lambda)&~\propto~\exp\left(\E_{\vec\phi_{1:N}}[\log
+%       %   p(\vec x, \vec z)]\right)\\
+%       % q^*(\vec z_n|\vec\phi_n) &~\propto~\exp\left(\E_{\vec\lambda}[\log p(\vec
+%       %   x_n, \vec\beta)]\right)
+%                                    q^*(\vec\beta|\vec\lambda)&~\propto~\exp\left(\E_{\vec z}[\log
+%                                                                p(\vec x, \vec z, \vec\beta)]\right)\\
+%       q^*(\vec z_n|\vec\phi_n) &~\propto~\exp\left(\E_{\vec\beta}[\log p(\vec
+%                                  x_n, \vec z_n, \vec\beta)]\right)
+%     \end{align*}
+%   \item Update one term at a time \arrow \cemph{Coordinate ascent}
+%   \item No closed-form solution (see EM algorithm)
+%   \item Iteratively optimize each parameter until we reach a local
+%     optimum (convergence guaranteed)
+%   \end{itemize}
+% \end{frame}
+
+
+% \begin{frame}{Mean-Field VI: Algorithm}
+%   \begin{enumerate}
+%   \item Input: data $\vec x$, model $p(\vec\beta, \vec z, \vec x)$
+%   \item Initialize global variational parameters $\vec\lambda$ randomly
+%   \item While ELBO has not converged, repeat:
+%     \begin{enumerate}
+%     \item For each data point $\vec x_n$
+%       \begin{enumerate}
+%       \item Update local variational parameters $\vec\phi_n$
+%       \end{enumerate}
+%     \item Update global variational parameters $\vec\lambda$
+%     \end{enumerate}
+%   \end{enumerate}
+% \end{frame}
+
+
+
+% \begin{frame}{Example: Gaussian Mixture Models}
+% See Bishop \S 10.2, or Murphy \S 21.6 for full derivation.
+
+% \vspace{0.5cm}
+
+% What do we gain compared to Maximum Likelihood? \pause
+% \begin{itemize}
+% \item Approximate posterior over $\{\vmu_k, \mat \Sigma_k\}$ prevents catastrophic overfitting (board) \pause
+% \item ELBO as an approximation to the marginal likelihood \\
+% \arrow Tells us how many components to use.
+% \end{itemize}
+% \end{frame}
+
+
+
+
+
+
+
+\begin{frame}
+  \begin{center}
+    \Large \emph{Properties of Variational Inference}
+  \end{center}
+\end{frame}
+
+
+
+
+\begin{frame}{Properties of the KL divergence}
+The KL divergence is a \emph{measure of difference} between probability distributions.
+\begin{align}
+\mathrm{KL} = \KL{q(\vz)}{p(\vz)} = \int q(\vz) \log \frac{q(\vz)}{p(\vz)} \calcd{\vz}
+\end{align}
+\vspace{-0.8cm}
+\begin{itemize}
+\item $\mathrm{KL} \geq 0$ \pause
+\item $\mathrm{KL} = 0$ iff $q(\vz) = p(\vz)$ \pause
+\item Related to information theory and code lengths \pause
+\item Related to decision theory and betting returns \pause
+\item Intuitively:
+\begin{itemize}
+\item Strong penalty for $q(\vz)$ for placing mass where $p(\vz)$ doesn't
+\item Weak penalty for $q(\vz)$ for placing too much mass compared to $p(\vz)$
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Example: Gaussian KL divergence}
+  \begin{center}
+    \includegraphics[width=0.4\hsize]{./figures/vi/mean_field_vi_original}%
+    \hspace{5mm}
+    \onslide+<2->{\includegraphics[width=0.4\hsize]{./figures/vi/mean_field_vi_approx}}%
+  \end{center}
+  \vspace{-0.6cm}
+  \begin{align*}
+    &\KL{\NormDist{\vx; \vmu_0, \Sigma_0}}{\NormDist{\vx; \vmu_1, \Sigma_1}} = \\
+    & \qquad \frac{1}{2}\left[\Tr\left(\Sigma_1\inv\Sigma_0\right) + (\vmu_1 - \vmu_0)\transpose\Sigma_1\inv(\vmu_1 - \vmu_0)) - D + \log \frac{\det \Sigma_1}{\det \Sigma_0} \right]
+  \end{align*}
+  \vspace{-0.6cm}
+  \begin{itemize}
+  \item $\Sigma_0\to \mathbf{0} \qquad \implies \qquad \mathrm{KL} \to \infty$
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Approximating Distributions}
+  \begin{center}
+    \includegraphics[width=0.85\hsize]{./figures/vi/families_of_q}
+  \end{center}
+
+  \pause
+  Trade-off
+  \begin{itemize}
+    \item More expressive gets closer to the true posterior
+    \item Less expressive is easier to handle
+    \item Expressive distributions may not allow integrals in ELBO to be computed
+  \end{itemize}
+  % \begin{itemize}
+  % \item Specifying the class of posteriors is closely related to
+  %   specifying a model of the data\\
+  %   \arrow We have a lot of flexibility \pause
+  % \item Generally:
+  %   \begin{itemize}
+  %   \item Build \cemph{expressive class of posteriors} (no
+  %     overfitting problems)
+  %   \item Maintain \cemph{computational efficiency} \arrow \cemph{Scalability}
+  %   \end{itemize}
+  % \end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Mean-Field Approximation: Limitation}
+  \begin{center}
+    \includegraphics[width=0.4\hsize]{./figures/vi/mean_field_vi_original}%
+    \hspace{5mm}
+    \includegraphics[width=0.4\hsize]{./figures/vi/mean_field_vi_approx}
+  \end{center}
+
+  \begin{itemize}
+    \item Mean-field VI to approximate a correlated Gaussian with a
+      factorized Gaussian
+    \item Generally, mean-field VI tends to yield an approximation
+      that is \calert{too compact} \arrow Need better classes of
+      posterior approximations
+  \end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}{Interpretation of terms}
+  \begin{align*}
+    \log p(\vec x) &\geq
+    % q(\vec x)\log \left(p(\vec x | \vec z)
+    % \frac{p(\vec z)}{q(\vec z)}\right)d\vec z\\
+    % &= \int q(\vec z) \log p(\vec x|\vec z)d\vec z -\int q(\vec
+    % z)\log\frac{q(\vec z)}{p(\vec z)}d\vec z\\
+    % &= \orange{\E_q[\log p(\vec x|\vec z)]} - \blue{\E_q\left[\log\frac{q(\vec
+    % z)}{p(\vec z)}\right]} \\
+    \orange{\E_q[\log p(\vec x|\vec z)]} - \blue{\KL{q(\vec z)}{p(\vec z)}}=:\text{ELBO}
+  \end{align*} \pause
+
+  \begin{itemize}
+  \vspace{-5mm}
+  \item \orange{Data-fit term} (expected log-likelihood): Measures how
+    well samples from $q(\vec z)$ explain the data (``reconstruction cost''). \\
+    \arrow Place $q$'s mass on the MAP estimate. 
+  \item \blue{Regularizer:} Variational posterior $q(\vec z)$
+    should not differ much from the prior $p(\vec z)$
+  \end{itemize}
+\end{frame}
+
+
+
+
+
+
+
+\begin{frame}{Alternative form of ELBO}
+\begin{align*}
+\lb(q_\vv) &= \int q_\vv(\vz) \log p(\vx\given\vz) \calcd{\vz} &&- \underbrace{\int q_\vv(\vz) \log \frac{q_\vv(\vz)}{p(\vz)}}_{\text{KL}} \calcd{\vz} \\
+&= \int q_\vv(\vz) \log p(\vx\given\vz) p(\vz) \calcd\vz &&-\int q_\vv(\vz) \log q_\vv(\vz) \calcd\vz \\
+&= \int q_\vv(\vz) \log p(\vx\given\vz) p(\vz) \calcd\vz &&+ \mathcal{H}(q_\vv(\vz))
+\end{align*}
+\end{frame}
+
+
+
+\begin{frame}{Comparison to MAP}
+\begin{align}
+\lb(q_\vv) &= \int q_\vv(\vz) \log p(\vx\given\vz)p(\vz) \calcd{\vz} &&+ \mathcal{H}(q_\vv(\vz)) \\
+L_{\text{MAP}}(\vz) &= \log p(\vx|\vz) + \log p(\vz) &&
+\end{align}
+
+\pause
+
+\begin{itemize}
+  \item Fit the data like MAP
+  \item but also be as \emph{uncertain} as possible (entropy)
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Properties of the differential entropy}
+\begin{align}
+\mathcal{H}[q(\vz)] = - \int q(\vz) \log q(\vz) \calcd{\vz}
+\end{align}
+\begin{itemize}
+  \item Generalises entropy to continuous variables
+  \item Limit of: Entropy of quantised $q(\vz)$ minus uniform distribution
+  \item Can be negative! (i.e.~more certain than a uniform)
+\end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}{Summary}
+\begin{itemize}
+\item Variational turns inference into optimisation
+\item Two ways to derive:
+\begin{itemize}
+\item We minimise the KL divergence to the posterior
+\item Lower bound marginal likelihood with Jensen's inequality
+\end{itemize}
+\item Constrained approximation families (e.g.~mean-field) tend to underestimate uncertainty
+\end{itemize}
+
+\vspace{0.4cm}
+
+Next time:
+\begin{itemize}
+\item How to compute ELBOs
+\item How to optimise ELBOs
+\end{itemize}
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% \begin{frame}{Conditionally conjugate models}
+% For \emph{conditionally conjugate models}, we have
+% \begin{itemize}
+% \item a way to find the \emph{optimal form} of each approximation term,
+% \item closed-form ELBOs,
+% \item a specialised way of optimising terms without gradients.
+% \end{itemize}
+
+% \pause
+% \vspace{1.0cm}
+
+% Next time...
+% \end{frame}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \section{Mean-Field Variational Inference}
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}{Mean-Field Approximation}
+% \begin{center}
+%     \includegraphics[width=0.85\hsize]{./figures/vi/families_of_q}
+%   \end{center}
+%   \begin{itemize}
+%   \item Assume conditionally conjugate model
+%   \item \cemph{Fully factorized (mean field)} approximation:
+%     \begin{columns}
+%       \column{0.7\hsize}
+%     \begin{align*}
+%       q(\vec \beta, \vec z|\vec\nu) = q(\vec \beta|\vec\lambda) \prod_{n=1}^N q(\vec
+%       z_n|\vec\phi_n) 
+%     \end{align*}
+%     \column{0.4\hsize}
+%     \begin{center}
+%   \scalebox{0.8}{\input{./figures/vi/mean_field_variational_parameters}}
+% \end{center}
+%   \end{columns}
+% \end{itemize} 
+% \end{frame}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}{Fully Factorized Distribution}
+%   \begin{itemize}[<+->]
+%   \item \cemph{Fully factorized (mean field)} approximation:
+%     \begin{align*}
+%       q(\vec \beta, \vec z|\vec\nu) = q(\vec \beta|\vec\lambda) \prod_{n=1}^N q(\vec
+%       z_n|\vec\phi_n)    \,, \quad \vec\nu = \{\vec\lambda,
+%                                  \vec\phi_1,\dotsc, \vec\phi_N\}
+%     \end{align*}
+%     %
+%       \item All latent variables are \cemph{independent} and governed by their \cemph{own
+%       variational parameters}
+%     \item Assume each factor is in the same exponential family as the model's
+%       complete conditional
+%     \item \calert{The $q$-factors do not depend on the data}
+%     \item \cemph{ELBO connects this family to the data}
+%     \item Maximize the ELBO w.r.t. variational parameters $\vec\nu$
+%   \end{itemize} 
+% \end{frame}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}{Optimizing in Turn}
+%   \begin{itemize}
+%   \item Independent latent variables: \colchar{$q(\vec z) = \prod_n
+%     q(\vec z_n|\vec\phi_n)=\prod_nq_n(\vec z_n)$}{blue}\newline
+%     \arrow Optimize variational
+%     parameters in turn
+%     \begin{align*}
+%       \onslide+<2->{\text{ELBO} &=\E_q\left[\log \left(p(\vec x|\vec z)
+%                                   \frac{p(\vec z)}{q(\vec z)}\right)\right]
+%                                   }
+%       %=\E_q\left[\log \frac{p(\vec x, \vec z)}{q(\vec z)}\right] \\
+% \onslide+<3->{
+%       = \E_q[\orange{\log p(\vec x, \vec z)} \blue{- \log q(\vec z)}]\\
+%       }
+%       \onslide+<4->{
+%       &=\orange{ \E_{q_n}\Big[\underbrace{\E_{i\neq n}[\log p(\vec x, \vec
+%         z)]}_{=:\hat p(\vec x, \vec z_n)}\Big]} \blue{-
+%         \E_{q_n}[\log q_n(\vec z_n)] - \sum_{i\neq n}\E_{q_i}[\log q_i(\vec
+%         z_i)]}\\
+%       }
+%       \onslide+<5->{
+%       &=\orange{\E_{q_n}[\hat p(\vec x, \vec z_n)]}\blue{ - \E_{q_n}[\log q_n(\vec z_n)]
+%       - \sum_{i\neq n}\E_{q_i}[\log q_i(\vec
+%         z_i)]}
+%         }
+%     \end{align*}
+%     \onslide+<6->{
+%     \item Fix $q_{i\neq n}$ and optimize factor $q_n$:
+%     }
+%  \onslide+<7->{
+%     \begin{align*}
+%       \text{ELBO}(q_n) & = \E_{q_n}[\hat p(\vec x, \vec z_n)] - \E_{q_n}[\log
+%                   q_n(\vec z_n)] + \text{const}\\
+%       \onslide+<8->{
+%                        &= \E_{q_n}\left[\log \frac{\exp(\hat p(\vec x, \vec
+%         z_n))}{q_n(\vec z_n)}\right] = -\KL{q_n(\vec z_n)}{\exp(\hat p(\vec x, \vec
+%                          z_n))}
+%                          }
+%     \end{align*}
+%     }
+%   \end{itemize}
+% \end{frame}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}{Optimal Factors}
+%   \begin{align*}
+%       \text{ELBO}(q_n) &=  -\KL{q_n(\vec z_n)}{\exp(\hat p(\vec x, \vec
+%         z_n))}
+%     \end{align*}
+%   \begin{itemize}[<+->]
+%   \item Maximizing the ELBO w.r.t. $q_n$ is equivalent to minimizing $\KL{q_n(\vec z_n)}{\exp(\hat p(\vec x, \vec
+%       z_n))}$
+%       $$
+%       \arrow~\colchar{$\log q_n^*(\vec z_n) = \hat p(\vec x, \vec z_n) =
+%       \E_{q_{i\neq n}} [\log p(\vec x, \vec z)] + \text{const}$}{blue}
+%       $$
+%     \item
+%       Get the optimal factor $q_n^*$ by
+%       \begin{enumerate}
+%         \item Writing down the log-joint distribution of all latent
+%           and observed variables $\log p(\vec x, \vec z)$
+%          \item Computing the expectation w.r.t. all other random variables
+%       \end{enumerate}
+%     \end{itemize}
+% \end{frame}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+% \begin{frame}{Mean-Field Approximation for Conditionally Conjugate Models}
+%  \begin{center}
+%   \scalebox{0.8}{\input{./figures/vi/mean_field_variational_parameters}}
+% \end{center}
+%   \begin{itemize}[<+->]
+%   \item \cemph{Optimal factors} (see Bishop (2006)\nocite{Bishop2006} or
+%     Ghahramani \& Beal (2001)\nocite{Ghahramani2001, Beal2003}):
+%     \begin{align*}
+%       % q^*(\vec\beta|\vec\lambda)&~\propto~\exp\left(\E_{\vec\phi_{1:N}}[\log
+%       % p(\vec x, \vec z)]\right)\\
+%       % q^*(\vec z_n|\vec\phi_n) &~\propto~\exp\left(\E_{\vec\lambda}[\log p(\vec
+%       % x_n, \vec\beta)]\right)
+% q^*(\vec\beta|\vec\lambda)&~\propto~\exp\left(\E_{\vec z}[\log
+%       p(\vec x, \vec z, \vec\beta)]\right)\\
+%       q^*(\vec z_n|\vec\phi_n) &~\propto~\exp\left(\E_{\vec\beta}[\log p(\vec
+%       x_n, \vec z_n, \vec\beta)]\right)
+%     \end{align*}
+%   \item Update one term at a time \arrow \cemph{Coordinate ascent}
+%     \item No closed-form solution (see EM algorithm)
+%     \item Iteratively optimize each parameter until we reach a local
+%       optimum (convergence guaranteed)
+%     \end{itemize}
+%   \end{frame}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   \begin{frame}{Mean-Field Approximation: Algorithm}
+% \begin{enumerate}
+% \item Input: data $\vec x$, model $p(\vec\beta, \vec z, \vec x)$
+% \item Initialize global variational parameters $\vec\lambda$ randomly
+% \item While ELBO has not converged, repeat:
+%   \begin{enumerate}
+%   \item For each data point $\vec x_n$
+%     \begin{enumerate}
+%     \item Update local variational parameters $\vec\phi_n$
+%     \end{enumerate}
+% \item Update global variational parameters $\vec\lambda$
+% \end{enumerate}
+% \end{enumerate}
+% \end{frame}
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \begin{frame}{Mean-Field Approximation: Limitation}
+%   \begin{center}
+%     \includegraphics[width=0.4\hsize]{./figures/vi/mean_field_vi_original}%
+%     \hspace{5mm}
+%     \onslide+<2->{\includegraphics[width=0.4\hsize]{./figures/vi/mean_field_vi_approx}}%
+%   \end{center}
+
+%   \begin{itemize}[<+->]
+%     \item Mean-field VI to approximate a correlated Gaussian with a
+%       factorized Gaussian
+%     \item Generally, mean-field VI tends to yield an approximation
+%       that is \calert{too compact} \arrow Need better classes of
+%       posterior approximations
+%   \end{itemize}
+% \end{frame}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}{Classical Variational Inference: Limitation}
+%   \begin{figure}
+%     \centering
+%     \includegraphics[width=\hsize]{./figures/vi/data_local_global}
+%   \end{figure}
+%   \pause
+%   \begin{itemize}
+%   \item Classical VI is inefficient: Need to crunch through the full
+%     dataset to update variational parameters\\
+%     \alert{Can't handle massive data}
+%     \pause
+%   \item \emph{Stochastic variational inference} updates the
+%     global hidden structure once we have any update of the local
+%     structure\\
+%     \arrow \cemph{Stochastic optimization}
+%   \end{itemize}
+% \end{frame}
+
+
+
+
+
+
+
+
+
+
+% \begin{frame}{Some Useful Quantities}
+%   \begin{itemize}[<+->]
+%   \item \cemph{Kullback-Leibler divergence}
+%     \begin{align*}
+%     \KL{q(\vec x)}{p(\vec x)} &= \int q(\vec x) \log \frac{q(\vec x)}{p(\vec
+%       x)}d\vec x\\
+%     &=\E_q\left[\log \frac{q(\vec x)}{p(\vec
+%       x)}\right] =  \E_q[\log q(\vec x)] -\E_q[\log p(\vec x)]
+%   \end{align*}
+% \item \cemph{Differential entropy}
+%   $$
+%   \mathrm{H}[q(\vec x)] = -\E_q[\log q(\vec x)] = -\int q(\vec x) \log q(\vec
+%   x)d\vec x
+%   $$
+%   \end{itemize}
+  
+% \end{frame}
+
+
+
+
+% \input{elbo_min_kl}
+
+% \begin{frame}
+%   \begin{center}
+%     \emph{Evidence Lower Bound}
+%   \end{center}
+% \end{frame}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \input{importance_sampling_recap}
+% \input{jensen}
+% \input{is2vi}
+% \input{elbo}
+
+% %%%%
+% \begin{frame}{Overview\phantom{p}}
+%    \begin{figure}
+%     \centering
+%     \scalebox{0.5}{\input{./figures/vi/vi_optimization_sketch}}
+%   \end{figure}
+  
+%   \begin{itemize}
+%   \item Find approximation of a probability distribution (e.g.,
+%     posterior) by {optimization}:
+%     \begin{enumerate}
+%       \item Define an objective function %(will be $\KL{q}{p}$)
+%       \item \emph{Define a (parametrized) family of approximating
+%         distributions $q_{\vec\nu}$}
+%       \item Optimize objective function w.r.t. {variational
+%           parameters} $\vec\nu$
+%       \end{enumerate}
+%      \item Inference \arrow Optimization
+%     \end{itemize}
+% \end{frame}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}{Roadmap I}
+
+%   \begin{enumerate}
+%   \item Define a generic class of \cemph{conditionally conjugate models}
+%   \item Classical \cemph{mean-field variational inference}
+%   \item \cemph{Stochastic variational inference} \arrow Scales to massive data
+%   \end{enumerate}
+  
+% \end{frame}
+
+% \section{Conditionally Conjugate Models}
+% \input{generic_model_class}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}{Approximating Distributions}
+
+%   \begin{center}
+%     \includegraphics[width=0.85\hsize]{./figures/vi/families_of_q}
+%   \end{center}
+
+%   \pause
+%   \begin{itemize}
+%   \item Specifying the class of posteriors is closely related to
+%     specifying a model of the data\\
+%     \arrow We have a lot of flexibility \pause
+%     \item Generally:
+%       \begin{itemize}
+%       \item Build \cemph{expressive class of posteriors} (no
+%         overfitting problems)
+%       \item Maintain \cemph{computational efficiency} \arrow \cemph{Scalability}
+%       \end{itemize}
+%     \end{itemize}
+  
+% \end{frame}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \section{Mean-Field Variational Inference}
+% \input{mean_field_vi}
+
+% \section{Stochastic Variational Inference}
+% \input{svi.tex}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \begin{frame}{Overview\phantom{p}}
+%    \begin{figure}
+%     \centering
+%     \scalebox{0.5}{\input{./figures/vi/vi_optimization_sketch}}
+%   \end{figure}
+  
+%   \begin{itemize}
+%   \item Find approximation of a probability distribution (e.g.,
+%     posterior) by {optimization}:
+%     \begin{enumerate}
+%     \item Define an objective function %(will be $\KL{q}{p}$)
+%     \item Define a (parametrized) family of approximating
+%       distributions $q_{\vec\nu}$
+%     \item Optimize objective function w.r.t. {variational parameters}
+%       $\vec\nu$
+%     \end{enumerate}
+%   \item Inference \arrow Optimization
+%   \end{itemize}
+% \end{frame}
+
+
+
+% \begin{frame}{Roadmap II}
+%   \begin{enumerate}
+%   \item Limits of Classical Variational Inference
+%   \item Black-Box Variational Inference
+%   \item Computing Gradients of Expectations
+%   \end{enumerate}
+% \end{frame}
+
+% \section{Limits of Classical Variational Inference}
+% \input{limits_vi}
+% \section{Black-Box Variational Inference}
+%  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \input{bbvi.tex}
+
+
+% %\section{Computing Gradients of Expectations}
+% \section{Computing Gradients of Expectations}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}[t]{Approach}
+% \begin{center}
+%     \input{./figures/vi/gradient_estimator2}
+%   \end{center}
+%   \begin{itemize}
+%     \item \emph{Switch order of integration (compute expectations) and
+%       differentiation}
+%     \item Simplify the expectation after having taken the gradient
+%     \end{itemize}
+% \end{frame}
+
+
+% \input{./log_derivative_trick}
+% \input{./gradients_of_expectations}
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}[t]{Approach}
+% \begin{center}
+%     \input{./figures/vi/gradient_estimator2}
+%   \end{center}
+%   \begin{itemize}
+%     \item Swap order of integration (compute expectations) and
+%       differentiation
+%     \item \emph{Simplify the expectation after having taken the
+%         gradient}
+%     \end{itemize}
+% \end{frame}
+
+
+% \subsection{Score Function Gradients}
+
+
+% \input{score_function_gradients}
+% % \input{control_variates}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}{Non-Conjugate Models}
+%   \begin{itemize}
+%     \item Nonlinear time series models
+%     \item Deep latent Gaussian models
+%     \item Attention models (e.g., DRAW)
+%     \item Generalized linear models (e.g., logistic regression)
+%     \item Bayesian neural networks
+%     \item ...
+%     \end{itemize}
+    
+
+%     \begin{myblock}{}
+%       BBVI allows us to design models $p(\vec x, \vec z)$ based
+%       on the data, and not on the inference we can do
+%     \end{myblock}
+%   \end{frame}
+
+% % Now, simplify inference (easier or faster) with some small additional assumptions
+
+%   \subsection{Pathwise Gradients}
+% \input{pathwise_gradients}
+
+
+% % this works nicely for variational inference
+
+% % if you want to put this into the SVI framework we have a computational
+% % problem. Amortized inference!
+
+% %%%%%%%%%
+% \begin{frame}{Re-cap: Hierarchical Bayesian Models}
+%  \begin{center}
+%   \input{./figures/vi/global_local_vars}
+% \end{center}
+
+% \begin{itemize}[<+->]
+% \item Joint distribution:
+% \begin{align*}
+% p(\vec\beta,\vec z, \vec x) = p(\vec\beta) \prod_{n=1}^N p(\vec z_n,
+%   \vec x_n|\vec\beta)
+% \end{align*}
+% \item Mean-field variational approximation:
+% \begin{center}
+%   \scalebox{0.9}{\input{./figures/vi/mean_field_variational_parameters}}
+% \end{center}
+% \end{itemize}
+
+
+% \end{frame}
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}[t]{Re-cap: Mean-Field Stochastic Variational Inference}
+%   \begin{enumerate}
+%   \item Input: data $\vec x$, model $p(\vec\beta,\vec z, \vec x)$
+%   \item Initialize global variational parameters $\vec\lambda$
+%     randomly
+%   \item Repeat
+%   \begin{enumerate}
+%     \item Sample data point $\vec x_n$ uniformly at random
+%     \item Update local parameter $\vec\phi_n = \E_{\vec\lambda}[...]$
+%     \item Compute intermediate global parameter
+%       $\hat{\vec\lambda} =  N\E_{\vec\phi_{1:N}}[...]+...$
+%     \item Set global parameter
+%         $
+%         \vec\lambda \leftarrow (1-\rho_t)\vec\lambda +
+%         \rho_t\hat{\vec\lambda}
+%         $
+%     \end{enumerate}
+%   \end{enumerate}
+
+% \end{frame}
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}[t]{BBVI Stochastic Variational Inference\phantom{p}}
+%   \begin{enumerate}
+%   \item Input: data $\vec x$, model $p(\vec\beta,\vec z, \vec x)$
+%   \item Initialize global variational parameters $\vec\lambda$
+%     randomly
+%   \item Repeat
+%     \begin{enumerate}
+%     \item Sample data point $\vec x_n$ uniformly at random
+%     \item Update local parameter
+%       $\calert{\vec\phi_n = \E_{\vec\lambda}[...]}$
+%     \item Compute intermediate global parameter
+%       $\calert{\hat{\vec\lambda} = 
+%         N\E_{\vec\phi_{1:N}}[...]} + ...$
+%     \item Set global parameter
+%         $
+%         \vec\lambda \leftarrow (1-\rho_t)\vec\lambda +
+%         \rho_t\hat{\vec\lambda}
+%         $
+%     \end{enumerate}
+%   \end{enumerate}
+% \vspace{-3mm}
+%   Issue:
+%   \begin{itemize}
+%   \item \calert{Expectations} we require to update the local and global
+%     parameters are \calert{no longer tractable} \\
+%     \arrow No closed-form updating of variational factors
+%   \end{itemize}
+% \end{frame}
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \begin{frame}{Addressing the Challenge}
+  
+% \begin{itemize}[<+->]
+% \item Same problem we had with the ELBO: Integral intractable\\
+%   \arrow Gradient descent for variational updates
+% \item Idea: Stochastic optimization
+% \item Expectations for updating local variational parameters are computed \calert{per data point} \\
+%   \arrow
+%   Need to run an optimization algorithm per data point\\
+%   \arrow \alert{SVI gets really slow}
+% \end{itemize}
+% \onslide+<4->{\arrow \emph{Amortized Inference}}
+% \end{frame}
+
+
+
+% \section{Amortized Inference}
+% \input{amortized_inference}
+% % parametrized function that generates local parameters; parameters of
+% % that function are shared
+
+% % we do shrink the class of variational approximations. the more
+% % flexible this function the bigger the class
+
+% \input{vae.tex}
+
+
+% \begin{frame}{Overview}
+% \renewcommand{\arraystretch}{1.5}
+% \begin{table}[]
+% \begin{tabular}{l p{2.5cm} | p{3cm} p{3cm}}
+%   & &\multicolumn{2}{c}{Variational approximation of posterior}   \\
+%   & & mean-field & more general\\
+%   \hline
+% \multirow{2}{*}{Model}& conditionally conjugate &
+%                                                       \cellcolor[HTML]{9AFF99}
+%                                                       analytic solution           &            \\
+%                   & hierarchical Bayesian         & \cellcolor[HTML]{FCFF2F}stochastic gradient
+%                                             estimators; Example: VAE &
+%                                                                        dense
+%                                                                        Gaussian,
+%                                                                        mixture models,
+%                                                                        normalizing
+%                                                                        flows,
+%                                                                        auxiliary-variable
+%                                                                        models\newline
+% \end{tabular}
+% \end{table}
+% \end{frame}
+
+
+% \section{Richer Posterior Approximations}
+
+% \input{richer_posteriors}
+
+
+
+
+% % % \section{Normalizing Flows}
+
+
+
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% \begin{frame}{Summary}
+%   \begin{itemize}
+%     \item Variational inference \cemph{finds an approximate posterior by
+%       optimization}
+%       \item \cemph{Minimizing the KL divergence} is equivalent to \cemph{maximizing a
+%         lower bound} on the marginal likelihood
+%         \item \cemph{Mean-field VI:} analytic updates in conditionally
+%           conjugate models
+%         \item \cemph{Stochastic VI:} Stochastic optimization for scalability
+%         \item General models require us to compute \cemph{gradients of
+%           expectations}
+%           \begin{itemize}
+%           \item Score-function gradients
+%             \item Pathwise gradients
+%             \end{itemize}
+%           \item \cemph{Amortized inference}
+%             \item Modern VI allows us to specify \cemph{rich classes of
+%               posterior approximations}
+%   \end{itemize}
+% \end{frame}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}[t,allowframebreaks]
+\frametitle{References}
+\linespread{1.0}
+\tiny
+\bibliographystyle{abbrv}
+\bibliography{../includes/pi-literature}
+\end{frame}
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

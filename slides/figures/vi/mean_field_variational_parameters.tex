@@ -1,0 +1,14 @@
+\begin{tikzpicture}
+    \node[const](phi) at (-2,0) {\fixgmfont{$\vec\phi_n$}};
+    \node[latent](z) at (0,0) {$\vec z_n$};
+    \node[latent](beta) at (0,1){$\vec\beta$};
+    \node[const](lambda) at (-2,1) {\fixgmfont{$\vec\lambda$}};
+    %\edge{z,mu,sigma}{x};
+    \edge{lambda}{beta}
+    \edge{phi}{z}
+    \plate {zphi} {(z)(phi)} {$n=1,\dotsc, N$} ;
+\end{tikzpicture}
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "../lecture_variational_inference"
+%%% End:
