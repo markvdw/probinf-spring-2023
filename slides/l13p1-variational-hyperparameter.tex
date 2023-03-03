@@ -1,0 +1,234 @@
+%% Time-stamp: <2019-03-01 13:49:57 (marc)>
+\documentclass[xcolor=x11names,compress, mathserif,xcolor=table]{beamer}
+\newcommand\hmmax{0}
+\newcommand\bmmax{0}
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+  Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{Variational Parameter Learning}}
+\newcommand{\footertitle}{Stochastic Variational Inference}
+\newcommand{\location}{Imperial College}
+\newcommand{\talkDate}{February 27, 2022}
+
+\newcommand{\lb}{\mathcal{L}}
+
+
+
+\date{\imperialGray{\talkDate}}
+
+\usepackage{../includes/MarkMathCmds}
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+
+\linespread{1.2}
+
+
+\begin{frame}{Recap: Variational Inference}
+  \begin{itemize}
+  \item KL measures discrepancy between distributions
+    \begin{align}
+      \KL{q(\vz)}{p(\vz\given\vx)} \geq 0 && \text{with equality iff } q(\vz) = p(\vz\given\vx)
+    \end{align}
+  \item Find approx $q_\vv(\vz) \approx p(\vz\given\vx)$ by minimising KL divergence:
+    \begin{align}
+      \vv^* = \argmin_{\vv} \KL{q_\vv(\vz)}{p(\vz\given\vx)}
+    \end{align}
+  \item Equivalent to maximising lower bound (ELBO) $\lb$ since
+    \begin{gather}
+      \KL{q_\vv(\vz)}{p(\vz\given\vx)} = \log p(\vx) - \lb(\vv) \\
+      \implies \vv^* = \argmax_\vv \lb(\vv)
+    \end{gather}
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Bayes for hyperparameters}
+  Bayes' rule for everything:
+  \begin{columns}
+    \begin{column}{0.8\textwidth}
+      \begin{align}
+        p(\vw, \theta \given \vy) &= \frac{p(\vy, \vw, \theta)}{p(\vy)} = \frac{p(\vy\given \vw, \theta) p(\vw|\theta) p(\theta)}{p(\vy)} \\
+                                  &= \underbrace{\frac{p(\vy\given \vw, \theta) p(\vw|\theta)}{p(\vy\given \theta)}}_{p(\vw|\vy,\theta)} \underbrace{\frac{p(\vy\given \theta) p(\theta)}{p(\vy)}}_{p(\theta\given \vy)}
+      \end{align}
+    \end{column}
+
+    \begin{column}{0.18\textwidth}
+      \begin{tikzpicture}
+        \node[latent](yn) at (0,-1.25){$y_n$};
+        \node[latent](w) at (0,0){$\vw$};
+        \node[latent](t) at (-1.25,0){$\theta$};
+        \edge{t,w}{yn};
+        \edge{t}{w};
+        \plate {zphi} {(yn)} {$n=1,\dotsc, N$} ;
+      \end{tikzpicture}
+    \end{column}
+  \end{columns}
+  \pause
+
+  Posterior over $f$ and $\theta$ consists of two parts \pause
+  \begin{enumerate}
+  \item The original posterior over $f$, \pause
+  \item A posterior over $\theta$ using the \emph{marginal likelihood}:
+    \begin{align}
+      p(\vy | \theta) = \int p(\vy | \vw, \theta) p(\vw|\theta) \calcd{\vw}
+    \end{align}
+  \end{enumerate}
+\end{frame}
+
+
+
+\begin{frame}{Maximum Marginal Likelihood: Logistic Regression}
+  Logistic regression model (e.g.~$\theta_2$ controls basis function width):
+  \begin{align}
+    p(\vw|\theta) &= \NormDist{\vw; 0, \theta_1} \\
+    p(y_n|\vw, \theta) &= \sigma(y_n\vphi_{\theta_2}(\vx_n)\transpose\vw)
+  \end{align}
+
+  \vspace{0.3cm}
+
+  Can we still do Maximum Marginal Likelihood to find $\theta$?
+  \begin{align}
+    \textcolor{red}{p(\vw|\vy,\theta)} = \frac{p(\vy\given \vw, \theta) p(\vw|\theta)}{\textcolor{red}{p(\vy\given \theta)}}
+  \end{align}
+
+  \begin{itemize}
+  \item Posterior is intractable.
+  \item Marginal likelihood is intractable.
+  \end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}{Maximum Marginal Likelihood: Logistic Regression}
+  Logistic regression model (e.g.~$\theta_2$ controls basis function width):
+  \begin{align}
+    p(\vw|\theta) &= \NormDist{\vw; 0, \theta_1} \\
+    p(y_n|\vw, \theta) &= \sigma(y_n\vphi_{\theta_2}(\vx_n)\transpose\vw)
+  \end{align}
+
+  \vspace{0.3cm}
+
+  Can we still do Maximum Marginal Likelihood to find $\theta$?
+  \begin{align}
+    \textcolor{red}{p(\vw|\vy,\theta)} = \frac{p(\vy\given \vw, \theta) p(\vw|\theta)}{\textcolor{red}{p(\vy\given \theta)}}
+  \end{align}
+
+  \begin{itemize}
+  \item Posterior is intractable.
+  \item Marginal likelihood is intractable.
+  \end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Variational Inference}
+  Variational lower bound:
+  \begin{align}
+    \lb(\vv, \theta) = \sum_{n=1}^N\Exp{q_\vv(\vw)}{p(y_n|\vw, \theta))} - \KL{q(\vw)}{p(\vw|\theta)}
+  \end{align}
+
+Standard form has:
+\begin{itemize}
+\item expectations written over smallest dimensional random variable possible, e.g.
+\begin{align*}
+\textcolor{red}{\Exp{p(x_1, x_2)}{\log p(x_1)p(x_2)}} = \textcolor{Green3}{\Exp{p(x_1)}{\log p(x_1)} + \Exp{p(x_2)}{\log p(x_2)}}
+\end{align*}
+\item KL divergences separated out.
+\item Highlight when KL can be computed in closed-form.
+\end{itemize}
+
+\vspace{0.3cm}
+Finding bounds in standard form is \emph{exam skill} \tiny{(Example on board)}.
+\end{frame}
+
+
+
+\begin{frame}[t]{Variational ML-II}
+  Variational inference actually approximates \emph{two} quantities of interest:
+  \begin{itemize}
+  \item intractable posterior,
+  \item intractable marginal likelihood.
+  \end{itemize}
+
+\vspace{0.2cm}
+
+We can approximate Maximum Marginal Likelihood (or Type-II Maximum Likelihood) using the ELBO!
+\begin{enumerate}
+\item Maximise variational parameters to improve estimate of marglik
+\begin{align}
+\vv_{t+1} = \argmax_\vv \lb(\vv, \theta_t)
+\end{align}
+\item Maximise estimate of marglik
+\begin{align}
+\theta_{t+1} = \argmax_\theta \lb(\vv_{t+1}, \theta)
+\end{align}
+\end{enumerate}
+\end{frame}
+
+
+\begin{frame}[t]{Bias of Variational ML-II}
+\begin{itemize}
+\item Usually, posterior won't be exact.
+\item ... so neither will the marginal likelihood (KL gap).
+\end{itemize}
+
+\pause
+
+\begin{center}
+$\implies$ optimum of ELBO will be different \\ to true that of true marginal likelihood \tiny{(draw)}.
+\end{center} \pause
+
+\begin{itemize}
+\item No guarantee whether model selection will work.
+\item Sometimes can fail catastrophically.
+\item \emph{Empirical question} whether it works\footnote{Draw: Plot generalisation, marglik, ELBO.}
+\end{itemize}
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+\begin{frame}[t,allowframebreaks]
+  \frametitle{References}
+  \linespread{1.0}
+  \tiny
+  \bibliographystyle{abbrv}
+  \bibliography{../includes/pi-literature}
+\end{frame}
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

@@ -10,8 +10,11 @@ for file_name in "$@"; do
     handout_name="${file_name_noext}_handout.pdf"
     slides_name="${file_name_noext}_slides.pdf"
 
+    echo "pdflatex"
     pdflatex ${file_name} > /dev/null
+    echo "bibtex"
     bibtex ${file_name_noext} > /dev/null
+    echo "pdflatex"
     pdflatex ${file_name} > /dev/null
     mv ${file_name_noext}.pdf ${handout_name}
 

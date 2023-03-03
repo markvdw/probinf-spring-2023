@@ -1,0 +1,988 @@
+%% Time-stamp: <2019-03-01 13:49:57 (marc)>
+\documentclass[xcolor=x11names,compress, mathserif,xcolor=table]{beamer}
+\newcommand\hmmax{0}
+\newcommand\bmmax{0}
+
+\newcommand{\hackspace}{\hspace{4.2mm}}
+\newcommand{\showstudent}[1]{}
+
+
+
+
+
+% talk/author information
+\newcommand{\authorname}{Mark van der Wilk}
+\newcommand{\authoremail}{m.vdwilk@imperial.ac.uk}
+\newcommand{\authoraffiliation}{
+ Department of Computing\\Imperial
+  College London}
+\newcommand{\authortwitter}{markvanderwilk}
+\newcommand{\slidesettitle}{\imperialBlue{Stochastic Variational Inference}}
+\newcommand{\footertitle}{Stochastic Variational Inference}
+\newcommand{\location}{Imperial College}
+\newcommand{\talkDate}{February 25, 2022}
+
+\newcommand{\lb}{\mathcal{L}}
+
+
+
+\date{\imperialGray{\talkDate}}
+
+\usepackage{../includes/MarkMathCmds}
+
+
+
+% load defaults
+\input{../includes/header.tex}
+\input{../includes/titlepage.tex}
+
+\linespread{1.2}
+
+
+\begin{frame}{Recap: Variational Inference}
+\begin{itemize}
+\item KL measures discrepancy between distributions
+\begin{align}
+\KL{q(\vz)}{p(\vz\given\vx)} \geq 0 && \text{with equality iff } q(\vz) = p(\vz\given\vx)
+\end{align}
+\item Find approx $q_\vv(\vz) \approx p(\vz\given\vx)$ by minimising KL divergence:
+\begin{align}
+\vv^* = \argmin_{\vv} \KL{q_\vv(\vz)}{p(\vz\given\vx)}
+\end{align}
+\item Equivalent to maximising lower bound (ELBO) $\lb$ since
+\begin{gather}
+\KL{q_\vv(\vz)}{p(\vz\given\vx)} = \log p(\vx) - \lb(\vv) \\
+\implies \vv^* = \argmax_\vv \lb(\vv)
+\end{gather}
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{VI for Conditionally Conjugate Models}
+  For the class of \emph{conditionally conjugate models}, i.e.~models with complete conditionals in exponential family (e.g.~Bernoulli, Beta, Gamma, Gaussian, ...) and \emph{mean-field} (independent) variational approximations.
+\begin{center}
+  \input{./figures/vi/global_local_vars}
+\end{center}
+
+
+  \begin{itemize}
+    \item We have \emph{closed-form} expression for ELBO
+    \item Coordinate-ascent algorithm for maximising ELBO
+    \item Important if you want to be a VI researcher, but not enough time.
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Overview of today}
+\begin{itemize}
+  \item Limitations of Conditionally-Conjugate VI
+  \item Black-box variational inference
+  \item Gradients of expectations
+\end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}
+\begin{center}
+\Large \emph{Limitation 1: Non-conjugate models}
+\end{center}
+\end{frame}
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}{Example: Bayesian Logistic Regression}
+  \begin{columns}
+\column{0.7\hsize}
+    \begin{itemize}
+    \item Binary classification
+    \item Inputs $x \in\R$, labels $y\in\{0,1\}$
+    \item Model parameter $z$ (normally denoted by $\theta$)
+    \end{itemize}
+        \column{0.3\hsize}
+
+    \begin{center}
+    \includegraphics[height=3cm]{./figures/vi/logistic_regression_prediction}
+  \end{center}
+\end{columns}
+\pause
+\begin{align*}
+    &\text{Prior on model parameter: }p(z) = \gauss{0}{1}\\
+    &\text{Likelihood: } p(y_n|x_n, z) = \Ber(\sigma(zx_n))
+  \end{align*}
+  \vspace{-5mm}
+  \pause
+  \begin{itemize}
+  \item Assume we have a single data point $(x,y)$
+  \item Goal: Approximate the intractable posterior distribution $p(z|x,y)$
+    using variational inference
+  \end{itemize}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}{Example: Bayesian Logistic Regression (2)}
+  \begin{itemize}
+  \item Choose Gaussian variational approximation: \\
+    $q_\vv(z) = \gauss{z; \mu}{\sigma^2}$ \arrow
+    $\vec\nu = \onslide+<2->{\{\mu, \sigma^2\}}$
+\onslide+<3->{
+  \item Objective function: ELBO $\mathcal F(\vec\nu)$
+  \begin{align*}
+    \mathcal F(m,\sigma^2) &= \E_q[\orange{\log p(z)}  -\blue{\log 
+                             q(z)} + \red{\log
+                              p(y|x,z)}]\\
+    \onslide+<4->{
+                    &  = \orange{-\tfrac{1}{2}(\mu^2 +
+                             \sigma^2)} +
+                             \blue{\tfrac{1}{2}\log\sigma^2} +  \red{\E_q[\log
+                             p(y|x,z)]}  +\text{c}}\\
+   \onslide+<5->{\red{\E_q[\log p(y|x,z)]}&=}
+\onslide+<6->{\E_q[y\log\sigma(xz)+(1-y)\log(1-\sigma(xz))]}
+    \\
+    \onslide+<7->{&= \E_q[yxz] - \E_q[y\log(1+\exp(xz))] \\
+                         & \quad+
+                             \E_q\left[(1-y)\log \left(1 -
+                           \frac{\exp(xz)}{1+\exp(xz)}\right)\right]
+                           }
+  \end{align*}
+\onslide+<7->{
+  with
+  \begin{align*}
+    \sigma(xz) &= \frac{\exp(xz)}{1+\exp(xz)}
+  \end{align*}
+  }
+}
+\end{itemize}
+  
+\end{frame}
+
+
+
+\begin{frame}{Computing the Expected Log-Likelihood}
+
+  \begin{align*}
+  \red{\E_q[\log p(y|x,z)]}&= \E_q[yxz] - \E_q[y\log(1+\exp(xz))] \\
+                           &\quad +
+                             \E_q[(1-y)\log \left(1 -
+                             \frac{\exp(xz)}{1+\exp(xz)}\right)]\\
+   \onslide+<2->{ &= yx\mu - \E_q[y\log(1+\exp(xz))]\\&\quad +
+                             \E_q[(1-y)\log \left(
+    \frac{1}{1+\exp(xz)}\right)]\\}
+\onslide+<3->{    &= yx\mu -\E_q[y\log(1+\exp(xz))] \\
+                          &\quad
+                            - \E_q[\log (1 + \exp(xz))]  + \E_q[y\log
+                            (1+ \exp(xz))]\\}
+\onslide+<4->{    &=\red{yx\mu - \E_q[\log (1 + \exp(xz))] }}
+  \end{align*}
+\end{frame}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}{Example: Bayesian Logistic Regression (ctd.)}
+  \begin{itemize}
+  \item Choose Gaussian variational approximation: \\
+    $q_\vv(z) = \gauss{z; \mu}{\sigma^2}$ \arrow
+    $\vec\nu = \{\mu, \sigma^2\}$
+  \item Objective function: ELBO $\mathcal F(\vec\nu)$
+  \end{itemize}
+  \begin{align*}
+    \mathcal F(\mu,\sigma^2) &= \E_q[\orange{\log p(z)} + \red{\log
+                             p(y|x,z)} -\blue{\log 
+                             q(z)}]\\
+                           &= \orange{-\tfrac{1}{2}(\mu^2 +
+                             \sigma^2)} +
+                             \blue{\tfrac{1}{2}\log\sigma^2} +  \red{\E_q[\log
+                             p(y|x,z)]}  +\text{c}\\
+                           &= \orange{-\tfrac{1}{2}(\mu^2 +
+                             \sigma^2)} +
+                             \blue{\tfrac{1}{2}\log\sigma^2} +
+                             \red{yx\mu - \E_q[\log (1 + \exp(xz))] } 
+  \end{align*}
+  \vspace{-5mm}
+  \pause
+  \begin{itemize}
+  \item \alert{Expectation cannot be computed in closed form}
+    % \item \calert{Pushing gradients through Monte Carlo estimates is very hard.}
+  \item We want to optimise w.r.t.~variational parameters $\mu, \sigma^2$.
+    \pause
+  \item How can we optimise quantities that we cannot compute in closed-form?
+  \end{itemize}
+  
+\end{frame}
+
+
+
+
+\begin{frame}{Non-Conjugate Models}
+
+    \begin{itemize}
+    \item Nonlinear time series models
+    \item Deep latent Gaussian models
+    \item Attention models (e.g., DRAW)
+    \item Generalized linear models (e.g., logistic regression)
+    \item Bayesian neural networks
+    \item ...
+    \end{itemize}
+\pause
+    There are many interesting non-conjugate models
+    \\\arrow Look for a solution that is not model specific\\
+    \arrow \emph{Black-Box Variational Inference}
+\end{frame}
+
+
+
+
+
+
+\begin{frame}
+\begin{center}
+\Large \emph{Limitation 2: Large datasets}
+\end{center}
+\end{frame}
+
+
+\begin{frame}{Example: Bayesian Logistic Regression}
+Usual formulation:
+\begin{align}
+p(y_n\given \vx_n, \vz) = \mathrm{Ber}(\sigma(\vtheta\transpose\vx_n)) \\
+p(\vtheta) = \NormDist{\vtheta; 0, \mathbf{I}}
+\end{align}
+
+ELBO:
+\begin{align}
+\lb &= \Exp{q(\vtheta)}{\log\prod_{n=1}^Np(y_n\given\vx_n,\vtheta)} - \KL{q(\vtheta)}{p(\vtheta)} \nonumber \\
+&= \sum_{n=1}^N \Exp{q(\vtheta)}{\log p(y_n\given\vx_n,\vtheta)} - \KL{q(\vtheta)}{p(\vtheta)}
+\end{align}
+\end{frame}
+
+
+\begin{frame}{Big data}
+\begin{align}
+\lb &= \sum_{n=1}^N \Exp{q(\vtheta)}{\log p(y_n\given\vx_n,\vtheta)} - \KL{q(\vtheta)}{p(\vtheta)}
+\end{align}
+
+In ``big data'' applications, $N$ may be millions or billions.
+
+\vspace{0.3cm}
+
+\arrow Summing over all datapoints at \emph{each} optimisation iteration for $q(\vtheta)$ is \emph{too slow}.
+
+\end{frame}
+
+
+
+
+\begin{frame}
+\begin{center}
+\Large \emph{Stochastic Optimisation}
+\end{center}
+\end{frame}
+
+
+\begin{frame}{Stochastic Optimisation}
+
+
+
+
+\begin{align}
+\lb &= \sum_{n=1}^N \Exp{q(\vtheta)}{\log p(y_n\given\vx_n,\vtheta)} - \KL{q(\vtheta)}{p(\vtheta)}
+\end{align}
+
+
+We can trivially find an \emph{unbiased estimator} of the ELBO and its gradient by subsampling the data points! (solves problem 2)
+
+\pause
+
+\begin{align}
+\hat \lb = \frac{N}{M} \sum_{n\in \mathcal{M}} \Exp{q_\vv(\vtheta)}{\log p(y_n\given \vx_n, \vtheta)} - \KL{q_\vv(\vtheta)}{p(\vtheta)} \\
+\hat{\pderiv[\lb]{\vv}} = \frac{N}{M} \sum_{n\in \mathcal{M}} \pderiv{\vv} \Exp{q_\vv(\vtheta)}{\log p(y_n\given \vx_n, \vtheta)} - \pderiv{\vv}\KL{q_\vv(\vtheta)}{p(\vtheta)}
+\end{align}
+
+
+\begin{center}
+\Large Can we still optimise with estimated gradients? \pause (Yes)
+\end{center}
+
+
+\end{frame}
+
+
+\begin{frame}{Stochastic Gradient Descent (MML / Comp Opt)}
+Goal: $\vv^* = \argmax_\vv \lb(\vv)$
+\pause
+
+Normal gradient descent:
+\begin{gather}
+\vv_t = \vv_{t-1} + \rho_t\nabla_\vv\lb(\vv_{t-1}) \\
+\vv_t \to \vv^* \text{ as } t \to \infty
+\end{gather}
+\pause
+
+Stochastic gradient descent (Robbins \& Monro, 1951):
+\begin{gather}
+\text{if } \Exp{}{\hat{g}_t} = \nabla_\vv \lb(\vv_{t})
+\end{gather}
+\vspace{-0.6cm}
+\begin{gather}
+\vv_t = \vv_{t-1} + \rho_t\hat{g}_t \\
+\vv_t \to \vv^* \text{ as } t \to \infty \qquad \qquad \text{if } \sum_{t=1}^\infty\rho_t = \infty \text{ and } \sum_{t=1}^\infty\rho_t^2 < \infty \\
+\text{e.g. } \rho_t = 1 / t
+\end{gather}
+
+\pause
+
+Having a small $\mathbb{V}\left[\hat g_t\right]$ is crucial to ensure fast convergence.
+\end{frame}
+
+
+\begin{frame}{Stochastic Optimisation}
+\begin{itemize}
+\item Stochastic optimisation solves problem 2.
+\item Still stuck with problem 1: Intractable integrals in VI.
+\end{itemize}
+
+\vspace{0.5cm}
+
+\pause
+
+Since we're using stochastic gradient estimates anyway... \pause
+\begin{center}
+\Large Can we not also find Monte Carlo approximations to the gradients of intractable integrals?
+\end{center}
+\end{frame}
+
+
+
+
+
+\begin{frame}
+\begin{center}
+\Large \emph{Black-Box Variational Inference (BBVI)}
+\end{center}
+\end{frame}
+
+
+\begin{frame}{Black-Box Variational Inference}
+  \begin{center}
+    \includegraphics[width=0.8\hsize]{./figures/vi/bbvi}
+  \end{center}
+  \begin{itemize}
+  \item Any model (limitation 1)
+  \item Massive data (limitation 2)
+  \item Some general assumptions on the approximating family
+  \end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Black-Box Variational Inference}
+Problem 1: Intractable integral of the expected log-likelihood term
+\begin{align}
+\Exp{q(\vz)}{\log p(\vx\given\vz)} \,.
+\end{align}
+
+For stochastic optimisation we need an estimator of its \emph{gradient} $\hat g_t$, such that
+\begin{align}
+\Exp{}{\hat g_t} = \nabla_\vv \lb(\vv)
+\end{align}
+
+\pause
+\vspace{0.5cm}
+
+\begin{center}
+\Large Can we find such unbiased estimates?
+\end{center}
+
+\pause
+
+\begin{itemize}
+\item Score function estimator
+\item Reparameterisation estimator
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Problem statement}
+We have intractable terms that can be written as:
+\begin{align}
+\Exp{q_\vv(\vz)}{h(\vz, \vv)}
+\end{align}
+
+Goal: Find estimator $\hat g$ with property
+\begin{align}
+\Exp{}{\hat g} = \nabla_\vv \Exp{q_\vv(\vz)}{h(\vz, \vv)}
+\end{align} \pause
+
+Remember:
+\begin{itemize}
+\item It's easy to find a MC estimate of the objective.
+\item But we need an MC estimate of the gradients!
+\end{itemize}
+
+\end{frame}
+
+
+% \begin{frame}{Re-Writing the ELBO}
+%   \begin{align*}
+%     \text{ELBO} &= \E_q[\log p(\vec x|\vec z)] - \KL{q(\vec
+%                   z|\vec\nu)}{p(\vec z)} \\
+%   \onslide+<2->{
+%     &=\E_q[\blue{\log p(\vec x|\vec z)}] + \E_q[\blue{\log p(\vec z)} - \log q(\vec
+%     z|\vec \nu)]\\}
+% \onslide+<3->{   & = \E_q[\underbrace{\blue{\log p(\vec x, \vec z)} - \log q(\vec
+%      z|\vec\nu)}_{=:h(\vec z, \vec\nu)}]}
+%   \end{align*}
+
+%   \onslide+<4->{
+%     \begin{myblock}{Evidence Lower Bound}
+%       \vspace{-5mm}
+% \begin{align*}
+%   \text{ELBO}&=\E_q[h(\vec z,\vec\nu)] =  \int h(\vec z, \vec\nu) q(\vec
+%                z|\vec\nu)d\vec z\\
+%   h(\vec z,\vec\nu) &:= \log p(\vec x, \vec z) - \log
+%                       q_\vv(\vec z)
+% \end{align*}
+% \end{myblock}
+% }
+% \end{frame}
+
+
+
+\begin{frame}[t]{Approach}
+\begin{align}
+g(\vv) = \nabla_\vv\Exp{q}{h(\vz, \vv)}
+\end{align}
+% \begin{center}
+%     \input{./figures/vi/gradient_estimator2}
+%   \end{center}
+  \begin{itemize}[<+->]
+    \item Switch order to integration first, then differentiation \\
+(Monte Carlo estimates need expectations, and expectations are integrals)
+    \item Write integration as expectation again
+    \item Approximate the expectation after having taken the gradient\newline
+      \arrow Monte Carlo estimator (ideally with low variance)
+    \item Stochastic optimization
+    \end{itemize}
+    \onslide+<5->{
+    \arrow Require: \cemph{general way to compute gradients of
+      expectations}}
+\end{frame}
+
+
+
+\begin{frame}{Log-Derivative Trick}
+  \begin{myblock2}{Log-Derivative Trick}
+\vspace{-2mm}
+    \begin{align*}
+      &\nabla_{\vec\nu} \log q_\vv(\vec z) = 
+      \onslide+<2->{\frac{\nabla_{\vec\nu}q_\vv(\vec z)}{q_\vv(\vec z)}\\
+      \iff & \nabla_{\vec\nu}q_\vv(\vec z) = q_\vv(\vec
+             z)\nabla_{\vec\nu} \log q_\vv(\vec z) }
+    \end{align*}
+  \end{myblock2}
+  \onslide+<3->{
+  \begin{itemize}
+    \item 
+  Therefore:
+  \begin{align*}
+    \int \nabla_{\vec\nu} q_\vv(\vec z) f(\vec z) d\vec z &= \int q_\vv(\vec
+             z)\nabla_{\vec\nu} \log q_\vv(\vec z) f(\vec z)d\vec z \\
+    &= \E_q[\nabla_{\vec\nu} \log q_\vv(\vec z) f(\vec z)]
+  \end{align*}
+}
+\vspace{-5mm}
+\onslide+<4->{
+    \item If we can sample from $q$, this expectation can be evaluated
+      easily (Monte Carlo estimation)
+    \end{itemize}
+    }
+\end{frame}
+
+
+
+
+
+
+\begin{frame}{Gradients of Expectations: Approach 1}
+  $$
+  \text{ELBO} = \mathcal F(\vec\nu) = \E_q[h(\vec z,\vec\nu)]\,,\quad
+  h(\vec z, \vec\nu) = \log p(\vec x, \vec z) - \log q(\vec
+     z|\vec\nu)
+     $$
+     \vspace{-5mm}
+  \begin{itemize}
+    \item Need gradient of ELBO w.r.t. variational parameters $\vec\nu$
+  \end{itemize}
+\onslide+<2->{
+  \begin{align*}
+    \nabla_{\vec\nu}&\mathcal F =\blue{\nabla_{\vec\nu} \E_q[h(\vec
+                      z,\vec\nu)]}
+                      \onslide<3->{
+                      = \nabla_{\vec\nu}\int h(\vec z, \vec\nu)
+                      q_\vv(\vec z)d\vec z\\}
+    \onslide<4->{
+                    &= \int \big(\nabla_{\vec\nu} h(\vec\nu, \vec z)\big) q_\vv(\vec z) +
+                      \orange{h(\vec\nu, \vec z)\nabla_{\vec\nu}q_\vv(\vec z)}d\vec z
+                      \qquad\hspace{9mm}\fbox{product rule}\\
+    }
+    \onslide<5->{
+                    &= \int 
+                      q_\vv(\vec z)\nabla_{\vec\nu}h(\vec z,
+                      \vec\nu) + \orange{q_\vv(\vec z) \nabla_{\vec\nu}\log q_\vv(\vec z)
+                      h(\vec z, \vec \nu)}  d\vec
+                      z\quad\fbox{log-deriv. trick}\\
+    }
+                    &= \blue{\E_q[\nabla_{\vec\nu} \log q(\vec z|\vec \nu)h(\vec z,\vec\nu)
+                      + \nabla_{\vec\nu}h(\vec z,\vec\nu)]}
+  \end{align*}
+}
+\vspace{-6mm}
+  \onslide+<6->{
+  \begin{itemize}
+    \item We successfully \cemph{swapped gradient and expectation}
+    \item $q$ known\newline
+      \arrow Sample from $q$ and use Monte Carlo estimation
+    \end{itemize}
+  }
+\end{frame}
+
+
+
+\begin{frame}{Score Function}
+  \begin{itemize}[<+->]
+  \item \cemph{Score function:} Derivative of a log-likelihood
+    with respect to the parameter vector $\vec\nu$:
+    \begin{myblock}{Score Function}
+      \vspace{-5mm}
+    \begin{align*}
+      \text{score} = \nabla_{\vec\nu} \log q_\vv(\vec z) =
+      \frac{1}{q_\vv(\vec z)}\nabla_{\vec\nu}q_\vv(\vec z)
+    \end{align*}
+  \end{myblock}
+\item Measures the sensitivity of the log-likelihood
+    w.r.t. $\vec\nu$
+  % \item Central to maximum likelihood estimation
+  \end{itemize}
+  
+\end{frame}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}{Score Function (2)}
+  \begin{align*}
+  \text{score} = \nabla_{\vec\nu} \log q_\vv(\vec z) =
+  \frac{1}{q_\vv(\vec z)}\nabla_{\vec\nu}q_\vv(\vec z)
+  \end{align*}
+  
+  \begin{itemize}
+  \item Important property:
+    \begin{align*}
+      \E_{q_\vv(\vec z)}[\text{score}] &= \onslide+<2->{\E_{q_\vv(\vec z)}
+                                  \left[\frac{1}{q_\vv(\vec z)}\nabla_{\vec\nu}q_\vv(\vec z)\right] \\
+                                &= \int
+                                  \frac{1}{q_\vv(\vec z)} q_\vv(\vec z)\nabla_{\vec\nu}q_\vv(\vec z) d\vec z\\
+                                &= \int \nabla_{\vec\nu}q_\vv(\vec z)d\vec z =
+                                  \nabla_{\vec\nu} \int q_\vv(\vec z) d\vec z = \nabla_{\vec
+                                  \nu} 1 = 0}
+    \end{align*}
+    \onslide+<2->{\arrow \cemph{Mean of the score function is $0$}}
+    \pause
+  % \item Variance of the score: \cemph{Fisher information} \arrow
+  \end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}{Score Function Gradient Estimator}
+  $$\text{ELBO} = \E_q[h(\vec z,\vec\nu)] =
+  \E_q[\log p(\vec x, \vec z) - \log q_\vv(\vec z)]$$
+  \vspace{-6mm}
+  \begin{itemize}
+    \item Gradient of ELBO:
+  \begin{align*}
+    \nabla_{\vec\nu} \text{ELBO} &= \onslide+<2->{\E_q[\nabla_{\vec\nu} \log q_\vv(\vec z)h(\vec z,\vec\nu)] +
+    \E_q[\orange{\nabla_{\vec\nu} h(\vec z,\vec\nu)}]\\}
+\onslide+<3->{    &= \E_q[\nabla_{\vec\nu} \log q_\vv(\vec z)h(\vec z,\vec\nu)]\\
+    &\quad + \E_q[\orange{\underbrace{\nabla_{\vec\nu}\log p(\vec x, \vec
+      z)}_{=0} - \underbrace{\nabla_{\vec\nu} \log q_\vv(\vec 
+      z)}_{\text{score}}}]}
+  \end{align*}
+  \onslide+<4->{
+    \vspace{-3mm}
+\item Exploit that the mean of the score function is $0$. Then:
+  \begin{align*}
+    \nabla_{\vec\nu} \text{ELBO} & = \E_q[\nabla_{\vec\nu} \log q_\vv(\vec z)h(\vec z,\vec\nu)] \\
+    &= \E_q[\nabla_{\vec\nu}\log q_\vv(\vec z)(\log p(\vec x, \vec z) -
+      \log q_\vv(\vec z)) ]
+  \end{align*}
+}%
+\vspace{-6mm}
+\onslide+<5->{%
+  \item \cemph{Likelihood ratio gradient} (Glynn, 1990)
+  \item \cemph{REINFORCE gradient} (Williams, 1992)%\nocite{Williams1992}
+  }
+\end{itemize}
+\end{frame}
+
+  
+% \end{frame}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}{Using Noisy Stochastic Gradients}
+  \begin{itemize}[<+->]
+    \item Gradient of the ELBO
+  \begin{align*}
+    \nabla_{\vec\nu}\text{ELBO} = \E_q[\nabla_{\vec\nu}\log q_\vv(\vec z) (\log p(\vec x, \vec z) - \log q_\vv(\vec z))]
+  \end{align*}
+  is an expectation
+  \item Require that $q_\vv(\vec z)$ is differentiable
+    w.r.t. $\vec\nu$
+\item Get noisy unbiased gradients using Monte Carlo by sampling from $q$:
+  \begin{align*}
+    \frac{1}{S}\sum_{s=1}^S \nabla_{\vec\nu}\log q_\vv(\vec z\idx{s}) (\log p(\vec x, \vec z\idx{s}) - \log q_\vv(\vec z\idx{s}))\,,\quad \vec z\idx{s} \sim q_\vv(\vec z)
+  \end{align*}
+\item Sampling from $q$ is easy (we choose $q$)
+\item Use this within SVI to converge to a local optimum
+\end{itemize}
+\end{frame}
+
+
+
+
+
+
+
+
+
+\begin{frame}{Summary: BBVI procedure}
+Black Box Variational Inference
+
+  \begin{enumerate}
+    \item Input: model $p(\vec x, \vec z)$, variational approximation
+      $q_\vv(\vec z)$
+    \item Repeat
+      \begin{enumerate}
+      \item Draw $S$ samples $\vec z\idx{s}\sim q_\vv(\vec z)$
+      \item Update variational parameters
+        $$
+        \vec\nu_{t+1} = \vec\nu_t + \rho_t \underbrace{\orange{\frac{1}{S}\sum_{s=1}^S \nabla_{\vec\nu}\log q(\vec
+    z\idx{s}|\vec\nu) (\log p(\vec x, \vec z^{\idx{s}}) - \log q(\vec
+    z\idx{s}|\vec\nu))}}_{\text{MC estimate of the score-function gradient of the ELBO}}
+    $$
+    \item $t=t+1$
+    \end{enumerate}
+  \end{enumerate}
+\end{frame}
+
+
+
+
+\begin{frame}{Requirements for Inference}
+Similar to MCMC in that it makes \emph{few} requirements
+  \begin{itemize}
+  \item Computing the noisy gradient of the ELBO requires:
+    \begin{itemize}
+    \item Sampling from $q$. We choose $q$ so that this is possible.
+    \item Evaluate the score function
+      $\nabla_{\vec\nu}\log q_\vv(\vec z)$
+    \item Evaluate $\log q_\vv(\vec z)$ and
+      $\log p(\vec x, \vec z) = \log p(\vec z) + \log p(\vec x|\vec
+      z)$
+    \end{itemize}
+    \arrow \cemph{No model-specific computations for optimization}
+    (computations are only specific to the choice of the variational approximation)
+  \end{itemize}
+
+\end{frame}
+
+
+
+
+\begin{frame}{Issue: Variance of the Gradients}
+  \begin{itemize}
+    \item Stochastic optimization \arrow \alert{Gradients are noisy (high variance)}
+    \item The noisier the gradients, the slower the convergence
+    \item Possible solutions:
+      \begin{itemize}
+      \item \cemph{Control variates} (with the score function as control variate)
+      \item \cemph{Rao-Blackwellization}
+      \item \cemph{Importance sampling}
+      \end{itemize}
+    \end{itemize}
+
+\end{frame}
+
+
+
+\begin{frame}{Issues with score function estimator}
+  We can simplify the gradient estimator further:
+  \begin{itemize}
+    \item Score-function gradient estimator only requires general
+      assumptions
+    \item Noisy gradients are a problem
+    \item Address this issue by making some additional assumptions
+      (not too strict) \newline
+      \arrow \cemph{Pathwise gradient estimators}
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}[t]{Approach}
+\begin{align}
+g(\vv) = \nabla_\vv\Exp{q}{h(\vz, \vv)}
+\end{align}
+% \begin{center}
+%     \input{./figures/vi/gradient_estimator2}
+%   \end{center}
+  \begin{itemize}[<+->]
+    \item Switch order to integration first, then differentiation
+    \item Write integration as expectation again
+    \item Approximate the expectation after having taken the gradient\newline
+      \arrow Monte Carlo estimator (ideally with low variance)
+    \item Stochastic optimization
+    \end{itemize}
+    \onslide+<5->{
+    \arrow Require: \cemph{general way to compute gradients of
+      expectations}}
+\end{frame}
+
+
+
+\begin{frame}{Change of Variables}
+Some distributions can be sampled using a \emph{change of variables}, i.e.
+\begin{gather*}
+\vz = \vec t(\vepsilon) \qquad \text{with } \vepsilon \sim p(\vepsilon)
+\implies p(\vz) \text{ some desired distribution}
+\end{gather*}
+Densities are related
+\begin{gather*}
+p(\vepsilon) = p(\vz = t(\vepsilon)) \pderiv[t(\vepsilon)]{\vepsilon}
+\end{gather*}
+Integrals are related
+\begin{gather*}
+\int h(\vz) p(\vz) \calcd{\vz} = \int h(t(\vepsilon)) p(\vz = t(\vepsilon)) \pderiv[t(\vepsilon)]{\vepsilon} \calcd{\vepsilon} = \int h(t(\vepsilon)) p(\vepsilon) \calcd{\vepsilon}
+\end{gather*}
+  \begin{center}
+  \input{./figures/vi/jac_det.tex}
+\end{center}
+% \begin{itemize}
+%   \item Use function $\vec
+%     \vepsilon\mapsto \vec t(\vec \epsilon) = \vec \vz$
+%   \item Gives new density
+%     \begin{align}
+%       p(\vz) = p(\vepsilon = \vec t\inv(\vz))
+%     \end{align}
+%   \end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}{Gradients of Expectations: Approach 2}
+  \begin{align*}
+    \nabla_{\vec\nu}\text{ELBO} &= \blue{\nabla_{\vec\nu}\E_q[g(\vec
+                                  z, \vec\nu)]} \\
+                                \onslide+<2->{&= \nabla_{\vec\nu}\int
+                                  g(\vec z, \vec\nu) q_\vv(\vec z) d\vec z\\}
+                                \onslide+<3->{&=\nabla_{\vec\nu}\int g(\vec z, \vec\nu)
+                                  q(\vec\epsilon)d\vec\epsilon \qquad\qquad
+                                  \fbox{$q(\vec z) d\vec z = q(\vec\epsilon)d\vec\epsilon$}\\}
+                                \onslide+<4->{&= \nabla_{\vec\nu}\int g(t(\vec
+                                  \epsilon, \vec\nu),
+                                  \vec\nu)q(\vec\epsilon)d\vec\epsilon\qquad\fbox{$\vec z =
+                                  t(\vec \epsilon, \vec\nu)$}\\}
+                                \onslide+<5->{&= \int \nabla_{\vec\nu} g(t(\vec\epsilon,
+                                  \vec\nu), \vec\nu){q(\vec\epsilon)}d\vec\epsilon\qquad
+                                  \fbox{$\nabla_{\vec\nu}\int_{\vec\epsilon}
+                                  = \int_{\vec\epsilon}\nabla_{\vec\nu}$}\\}
+                                \onslide+<6->{&= \blue{\E_{q(\vec\epsilon)}[\nabla_{\vec\nu}g( t(\vec\epsilon,\vec\nu), \vec\nu)]}}
+  \end{align*}
+\onslide+<7->{\arrow Turned gradient of an expectation into
+  expectation of a gradient (and sampling from $q(\vec\epsilon)$ is
+  very easy).}
+\end{frame}
+
+
+
+
+
+
+\begin{frame}{Reparametrization Trick}
+
+
+  \begin{myblock2}{Reparametrization Trick}
+    Base distribution $p(\vec\epsilon)$ and a deterministic
+    transformation $\vec z = t(\vec\epsilon, \vec\nu)$ so that $ \vec
+    z \sim q_\vv(\vec z)$. Then:
+    \begin{align*}
+      \nabla_{\vec\nu}\E_{q_\vv(\vec z)}[f(\blue{\vec z})] =
+      \E_{p(\vec\epsilon)}[\nabla_{\vec\nu}f(\blue{t(\vec\epsilon, \vec\nu)})]
+    \end{align*}
+    \arrow Expectation taken w.r.t. base distribution
+  %  \arrow We can swap differentiation and integration
+  \end{myblock2}
+\pause
+  \begin{itemize}
+    \item Key idea: change of variables using a deterministic transformation
+  \end{itemize}
+\end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%% 
+\begin{frame}{Example}
+  \begin{figure}
+    \includegraphics[width=0.4\hsize]{./figures/vi/standard_normal}
+    \hspace{2mm}
+    \includegraphics[width=0.4\hsize]{./figures/vi/reparam_trick_example}
+  \end{figure}
+  \begin{align*}
+    \vec\nu &:=\{\vec\mu, \mat R\}\,,\quad \mat R\mat R\T = \mat\Sigma\\
+    p(\vec\epsilon) &= \gauss{\vec 0}{\mat I}\\
+    t(\vec\epsilon, \vec\nu) &= \vec\mu + \mat R\vec\epsilon\\
+    \implies p(\vec z) &= \gaussx{\vec z}{\vec\mu}{\mat\Sigma}
+  \end{align*}
+  \begin{itemize}
+  \item Base distribution is parameter free
+  \item Simple deterministic transformation $t$ generate more
+    expressive distributions\footnote{\url{https://tinyurl.com/hyakoj2}}
+  \end{itemize}
+  
+\end{frame}
+
+
+
+\begin{frame}{Pathwise Gradients}
+\begin{align*}
+    g(\vec z , \vec \nu) &= \log p(\vec x, \vec z) - \log q(\vec
+    z|\vec\nu)\\
+  \vec z &= t(\vec \epsilon, \vec\nu)
+  \end{align*}
+  %
+  Simplify gradient of the ELBO:
+  \pause
+  \begin{align*}
+    \nabla_{\vec\nu}&\text{ELBO}= \E_{p(\vec\epsilon)}[\nabla_{\vec\nu} g(t(\vec\epsilon, \vec\nu),
+                                 \vec\nu)]\\
+                               &=
+                                 \E_{p(\vec\epsilon)}[\blue{\nabla_{\vec\nu} \log  p(\vec x,
+                                 t(\vec\epsilon,\vec\nu))} -
+                                 \orange{\nabla_{\vec\nu} \log
+                                 q(t(\vec\epsilon,\vec\nu)|\vec\nu)}]\quad\fbox{Def. of
+                                 $g$}\\
+                               &= \E_{p(\vec\epsilon)}[\blue{\nabla_{\vec z}\log p(\vec x, \vec
+                                 z) \nabla_{\vec\nu}
+                                 t(\vec\epsilon,\vec\nu
+                                 )}\\
+                               &\quad -
+                                 \orange{\nabla_{\vec z} \log q(\vec
+                                 z|\vec\nu)\nabla_{\vec \nu}t(\vec \epsilon,\vec\nu)
+                                 -\underbrace{\nabla_{\vec\nu}\log q(t(\vec\epsilon,\vec\nu)|\vec\nu)}_{\text{score}}}]\quad\fbox{Chain rule}\\
+                               &=\E_{p(\vec\epsilon)}[\nabla_{\vec z}\big(\log p(\vec x, \vec z) -\log
+                                 q_\vv(\vec z)\big)\nabla_{\vec\nu}
+                                 t(\vec\epsilon, \vec\nu)]\quad\hspace{3mm} \fbox{Score property}
+  \end{align*}
+  \vspace{-4mm}
+  \begin{itemize}
+  \item \cemph{Pathwise gradient}
+  \item \cemph{Reparametrization gradient}
+  \end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Variance Comparison}
+  \begin{figure}
+    \centering
+    \includegraphics[height=3cm]{./figures/vi/var_comp_score_rep}
+  \end{figure}
+  \begin{itemize}[<+->]
+    \item Drastically reduced variance compared to score-function
+      gradient estimation
+    \item Restricted class of models (compared with score function
+      estimator)
+  \end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Score Function vs Pathwise
+    Gradients}
+  \begin{myblock}{}
+    \vspace{-5mm}
+  \begin{align*}
+    \text{ELBO} &= \int g(\vec z, \vec\nu) q_\vv(\vec z)d\vec z\\
+    g(\vec z, \vec\nu) &= \log p(\vec x, \vec z) - \log q(\vec z|\vec\mu)
+  \end{align*}
+\end{myblock}
+\begin{itemize}
+  \item Score function gradient:
+    $$
+\nabla_{\vec\nu}\text{ELBO} = \E_q[\blue{\big(\nabla_{\vec\nu}\log q(\vec
+z|\vec\nu)\big)} g(\vec z, \vec\nu)]
+$$
+\arrow Gradient of the variational distribution
+  \item Reparametrization gradient:
+    $$
+\nabla_{\vec\nu}\text{ELBO} =\E_{p(\vec\epsilon)}[\blue{\big(\nabla_{\vec
+    z}g(\vec z,\vec\nu)\big)}\nabla_{\vec\nu}
+      t(\vec\epsilon, \vec\nu)]
+      $$
+      \arrow Gradient of the model and the variational distribution
+    \item Often, $\Exp{q_\vv(\vz)}{\log q_\vv(\vz)}$ can be computed in closed form, and is excluded from MC estimation. (Skill to recognise when.)
+  \end{itemize}
+  
+\end{frame}
+
+
+\begin{frame}{Summary}
+
+  \begin{itemize}
+  \item Score function
+    \begin{itemize}
+    \item \cemph{Works for all models (continuous and discrete)}
+    \item \cemph{Works for a large class of variational approximations}
+    \item \calert{Variance} can be high \arrow Slow convergence
+    \end{itemize}
+  \item Pathwise gradient estimator
+    \begin{itemize}
+    \item Requires \calert{differentiable models}
+    \item Requires the \calert{variational approximation to be
+        expressed as a deterministic transformation
+        $\vec z=t(\vec\epsilon, \vec\nu)$}
+    \item \blue{Generally lower variance}
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{frame}[t,allowframebreaks]
+\frametitle{References}
+\linespread{1.0}
+\tiny
+\bibliographystyle{abbrv}
+\bibliography{../includes/pi-literature}
+\end{frame}
+
+
+
+\end{document}
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 
