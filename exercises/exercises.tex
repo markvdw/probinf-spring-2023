@@ -286,7 +286,7 @@ Consider the situation of the lighting example from lecture 1. Draw the graphica
 
 \begin{question}[Filtering]
 \label{q:gm-filtering}
-Consider the joint distribution (probability of everything) over discrete variables $\vx_{:t}=(x_1,x_2,\ldots,x_t), x_i\in(1,2,\ldots,D_x)$ and $\vy_{:t}=(y_1,y_2,\ldots,y_t), y_i\in\{1,2,\ldots,D_y\}$
+Consider the joint distribution (probability of everything) over discrete variables $\vx_{:t}=(x_1,x_2,\ldots,x_t), x_i\in\{1,2,\ldots,D_x\}$ and $\vy_{:t}=(y_1,y_2,\ldots,y_t), y_i\in\{1,2,\ldots,D_y\}$
 \begin{align}
 p( \vx_{:t}, \vy_{:t} ) &= p( x_1 ) p( y_1 | x_1 ) \prod_{i=2}^t p( x_i | x_{i-1}) p( y_i | x_i ). \label{eq:gm-filtering-poe}
 \end{align}
@@ -985,7 +985,7 @@ which is represented in the graphical model in Figure \ref{fig:gm-reflection}.
   \node(dots) at (4.6,0.7) {$\ldots$};
   \node(b2) at (5.2,1.4) {};
   \node[latent](xt) at (6.6,1.4) {$x_t$};
-  \node[latent](yt) at (6.6,0) {$y_t$};
+  \node[obs](yt) at (6.6,0) {$y_t$};
   \edge{x1}{y1};
   \edge{x2}{y2};
   \edge{x3}{y3};
