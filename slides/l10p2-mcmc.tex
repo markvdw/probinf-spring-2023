@@ -390,7 +390,7 @@ A Markov Chain is ergodic if there is some probability for any state to reach an
 
 When designing Markov Chains, the easiest way to guarantee this is to have transitions that satisfy:
 \begin{align}
-T(\vx\idx{t+1}\given \vx\idx t) \geq 0 && \forall \vx\idx{t+1}, \vx\idx{t}
+T(\vx\idx{t+1}\given \vx\idx t) > 0 && \forall \vx\idx{t+1}, \vx\idx{t}
 \end{align}
 
 Then, all states will communicate in 1 step.
